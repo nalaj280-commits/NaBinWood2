@@ -7,19 +7,13 @@
 
 #pragma warning(disable:4996)
 
-//////////////////////////////////////////////////////
 // 전역 변수
-//////////////////////////////////////////////////////
-
 HANDLE hConsole;
 
 int menu = 1;
 int isRunning = 1;
 
-//////////////////////////////////////////////////////
 // 콘솔 함수
-//////////////////////////////////////////////////////
-
 void setColor(int color)
 {
     SetConsoleTextAttribute(hConsole, color);
@@ -48,10 +42,7 @@ void printChar(wchar_t ch)
     );
 }
 
-//////////////////////////////////////////////////////
 // ASCII ART 출력
-//////////////////////////////////////////////////////
-
 void draw_art()
 {
     FILE* fp = fopen("art.txt", "rb");
@@ -115,56 +106,56 @@ void draw_art()
     setColor(7);
 }
 
-//////////////////////////////////////////////////////
 // 메뉴 출력
-//////////////////////////////////////////////////////
-
 void draw_menu()
 {
-    // 게임 제목
-
+    /* 게임 제목
     setColor(15);
 
     move_cursor(120, 18);
     wprintf(L"게임 제목");
+    */
 
     // 메뉴 1
-
     if (menu == 1)
         setColor(14);
     else
         setColor(15);
 
     move_cursor(122, 23);
-    wprintf(L"1. 시작");
+    wprintf(L"1. 게임 시작");
 
     // 메뉴 2
-
     if (menu == 2)
         setColor(14);
     else
         setColor(15);
 
     move_cursor(122, 27);
-    wprintf(L"2. 게임설명");
+    wprintf(L"2. 게임 설명");
 
     // 메뉴 3
-
     if (menu == 3)
         setColor(14);
     else
         setColor(15);
 
     move_cursor(122, 31);
+    wprintf(L"3. 제작자");
+
+    // 메뉴 4
+    if (menu == 4)
+        setColor(14);
+    else
+        setColor(15);
+
+    move_cursor(122, 35);
     wprintf(L"3. 종료");
 
     setColor(7);
 }
 
-//////////////////////////////////////////////////////
 // 타이틀 화면
-//////////////////////////////////////////////////////
-
 int RenderTitle()
 {
     system("cls");
@@ -186,7 +177,7 @@ int RenderTitle()
 
     case 's':
 
-        if (menu < 3)
+        if (menu < 4)
             menu++;
 
         break;
@@ -198,7 +189,7 @@ int RenderTitle()
             return 2;
         }
 
-        else if (menu == 3)
+        else if (menu == 4)
         {
             isRunning = 0;
         }
@@ -209,10 +200,7 @@ int RenderTitle()
     return 0;
 }
 
-//////////////////////////////////////////////////////
 // 게임 화면
-//////////////////////////////////////////////////////
-
 int MainGame()
 {
     system("cls");
@@ -228,30 +216,23 @@ int MainGame()
     return 0;
 }
 
-//////////////////////////////////////////////////////
-// 메인
-//////////////////////////////////////////////////////
 
+// 메인
 int main()
 {
     // 콘솔 핸들
-
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
     // UTF16 출력
-
     _setmode(_fileno(stdout), _O_U16TEXT);
 
     // 콘솔 크기
-
     system("mode con cols=170 lines=60");
 
     // UTF8 코드페이지
-
     system("chcp 65001");
 
     // 배경 검정
-
     system("color 00");
 
     int gameStatus = 0;
