@@ -188,12 +188,19 @@ int RenderTitle()
         {
             return 2;
         }
-
-
+        else if (menu == 2)
+        {
+            return 3;
+        }
+        else if (menu == 3)
+        {
+            return 4;
+        }
         else if (menu == 4)
         {
             isRunning = 0;
         }
+
 
         break;
     }
@@ -211,6 +218,32 @@ int MainGame()
 
     _getch();
 
+    return 0;
+}
+int GameEX()
+{
+    system("cls");
+    move_cursor(52, 10);
+    wprintf(L"게임 설명");
+    move_cursor(52, 12);
+    wprintf(L"게임 설명하는 내용");
+    move_cursor(52, 14);
+    wprintf(L"아무키나 누르면 타이틀로 돌아갑니더");
+    _getch();
+    return 0;
+}
+int Team()
+{
+    system("cls");
+    move_cursor(52, 8);
+    wprintf(L"팀소개");
+    move_cursor(52, 10);
+    wprintf(L"조건우 조장");
+    move_cursor(52, 12);
+    wprintf(L"이경빈 천재");
+    move_cursor(52, 14);
+    wprintf(L"아무키나 누르면 타이틀로 돌아갑니더");
+    _getch();
     return 0;
 }
 
@@ -249,7 +282,15 @@ int main()
             gameStatus = MainGame();
 
             break;
+		case 3:
+			gameStatus = GameEX();
+			break;
+		case 4:
+            gameStatus = Team();
+			break;  
+
         }
+        
     }
 
     system("cls");
