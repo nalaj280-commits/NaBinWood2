@@ -150,7 +150,7 @@ void draw_menu()
         setColor(15);
 
     move_cursor(122, 35);
-    wprintf(L"3. 종료");
+    wprintf(L"4. 종료");
 
     setColor(7);
 }
