@@ -1,17 +1,38 @@
 ﻿#include <stdio.h>
 #include <wchar.h>
-#include <locale.h>
 #include <windows.h>
 #include <fcntl.h>
 #include <io.h>
+#include <conio.h>
 
 #pragma warning(disable:4996)
 
+//////////////////////////////////////////////////////
+// 전역 변수
+//////////////////////////////////////////////////////
+
 HANDLE hConsole;
+
+int menu = 1;
+int isRunning = 1;
+
+//////////////////////////////////////////////////////
+// 콘솔 함수
+//////////////////////////////////////////////////////
 
 void setColor(int color)
 {
     SetConsoleTextAttribute(hConsole, color);
+}
+
+void move_cursor(int x, int y)
+{
+    COORD pos;
+
+    pos.X = x;
+    pos.Y = y;
+
+    SetConsoleCursorPosition(hConsole, pos);
 }
 
 void printChar(wchar_t ch)
@@ -27,37 +48,21 @@ void printChar(wchar_t ch)
     );
 }
 
-int main()
+//////////////////////////////////////////////////////
+// ASCII ART 출력
+//////////////////////////////////////////////////////
+
+void draw_art()
 {
-    char path[MAX_PATH];
-
-    GetCurrentDirectoryA(MAX_PATH, path);
-
-    MessageBoxA(NULL, path, "현재 경로", MB_OK);
-
-    // 콘솔 핸들
-    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    // UTF-16 출력 모드
-    _setmode(_fileno(stdout), _O_U16TEXT);
-
-    // 콘솔 설정
-    system("mode con cols=170 lines=60");
-    system("color 00");
-
-    // UTF-8 텍스트 파일 읽기
     FILE* fp = fopen("art.txt", "rb");
-
-
 
     if (!fp)
     {
-        wprintf(L"art.txt 파일을 열 수 없습니다.\n");
-        system("pause");
-        return 1;
+        move_cursor(0, 0);
+        wprintf(L"art.txt 파일을 열 수 없습니다.");
+        return;
     }
 
-    // UTF-8 → UTF-16 변환용 버퍼
     char utf8Buffer[4096];
     wchar_t wideBuffer[4096];
 
@@ -65,7 +70,6 @@ int main()
 
     while (fgets(utf8Buffer, sizeof(utf8Buffer), fp))
     {
-        // UTF-8 -> UTF-16 변환
         MultiByteToWideChar(
             CP_UTF8,
             0,
@@ -75,6 +79,8 @@ int main()
             4096
         );
 
+        move_cursor(0, line);
+
         int x = 0;
         wchar_t* p = wideBuffer;
 
@@ -82,12 +88,12 @@ int main()
         {
             wchar_t ch = *p;
 
-            // 기본 흰색
-            setColor(7);
+            // 기본 회색
+            setColor(8);
 
-            // 특정 영역 노랑색
+            // 노란색 영역
             if (
-                line >= 14 && line <= 23 &&
+                line >= 14 && line <= 24 &&
                 x >= 56 && x <= 121 &&
                 ch != L' '
                 )
@@ -107,10 +113,168 @@ int main()
     fclose(fp);
 
     setColor(7);
+}
 
-    wprintf(L"\n\n");
+//////////////////////////////////////////////////////
+// 메뉴 출력
+//////////////////////////////////////////////////////
 
-    system("pause");
+void draw_menu()
+{
+    // 게임 제목
+
+    setColor(15);
+
+    move_cursor(120, 18);
+    wprintf(L"게임 제목");
+
+    // 메뉴 1
+
+    if (menu == 1)
+        setColor(14);
+    else
+        setColor(15);
+
+    move_cursor(122, 23);
+    wprintf(L"1. 시작");
+
+    // 메뉴 2
+
+    if (menu == 2)
+        setColor(14);
+    else
+        setColor(15);
+
+    move_cursor(122, 27);
+    wprintf(L"2. 게임설명");
+
+    // 메뉴 3
+
+    if (menu == 3)
+        setColor(14);
+    else
+        setColor(15);
+
+    move_cursor(122, 31);
+    wprintf(L"3. 종료");
+
+    setColor(7);
+}
+
+//////////////////////////////////////////////////////
+// 타이틀 화면
+//////////////////////////////////////////////////////
+
+int RenderTitle()
+{
+    system("cls");
+
+    draw_art();
+
+    draw_menu();
+
+    char a = _getch();
+
+    switch (a)
+    {
+    case 'w':
+
+        if (menu > 1)
+            menu--;
+
+        break;
+
+    case 's':
+
+        if (menu < 3)
+            menu++;
+
+        break;
+
+    case 13:
+
+        if (menu == 1)
+        {
+            return 2;
+        }
+
+        else if (menu == 3)
+        {
+            isRunning = 0;
+        }
+
+        break;
+    }
+
+    return 0;
+}
+
+//////////////////////////////////////////////////////
+// 게임 화면
+//////////////////////////////////////////////////////
+
+int MainGame()
+{
+    system("cls");
+
+    setColor(10);
+
+    move_cursor(70, 30);
+
+    wprintf(L"게임 시작!");
+
+    _getch();
+
+    return 0;
+}
+
+//////////////////////////////////////////////////////
+// 메인
+//////////////////////////////////////////////////////
+
+int main()
+{
+    // 콘솔 핸들
+
+    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    // UTF16 출력
+
+    _setmode(_fileno(stdout), _O_U16TEXT);
+
+    // 콘솔 크기
+
+    system("mode con cols=170 lines=60");
+
+    // UTF8 코드페이지
+
+    system("chcp 65001");
+
+    // 배경 검정
+
+    system("color 00");
+
+    int gameStatus = 0;
+
+    while (isRunning)
+    {
+        switch (gameStatus)
+        {
+        case 0:
+
+            gameStatus = RenderTitle();
+
+            break;
+
+        case 2:
+
+            gameStatus = MainGame();
+
+            break;
+        }
+    }
+
+    system("cls");
 
     return 0;
 }
