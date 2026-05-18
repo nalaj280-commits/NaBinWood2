@@ -204,18 +204,14 @@ int RenderTitle()
 int MainGame()
 {
     system("cls");
-
     setColor(10);
-
     move_cursor(70, 30);
-
     wprintf(L"게임 시작!");
 
     _getch();
 
     return 0;
 }
-
 
 // 메인
 int main()
