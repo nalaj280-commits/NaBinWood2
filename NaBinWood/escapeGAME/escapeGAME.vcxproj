@@ -21,10 +21,9 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{e8b56d5c-25f9-4a08-bfb7-06289c7bede2}</ProjectGuid>
-    <RootNamespace>EscapeGame2</RootNamespace>
+    <ProjectGuid>{e8027067-1f9f-4eb1-8a18-6034a7a49985}</ProjectGuid>
+    <RootNamespace>escapeGAME</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>title</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
