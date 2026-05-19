@@ -26,6 +26,7 @@
 #define FONT_COLOR_WHITE 37
 #define BG_COLOR_WHITE 47
 
+// 202619183 이경빈
 void set_color(int code)
 {
 	printf("\x1b[%dm", code);
