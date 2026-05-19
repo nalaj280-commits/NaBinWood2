@@ -42,6 +42,106 @@ void printChar(wchar_t ch)
     );
 }
 
+// 문자열 실제 출력 폭 계산
+int get_width(const wchar_t* str)
+{
+    int width = 0;
+
+    while (*str)
+    {
+        if (*str >= 0xAC00 && *str <= 0xD7A3)
+            width += 2;
+        else
+            width += 1;
+
+        str++;
+    }
+
+    return width;
+}
+
+// 좌측 정렬 출력
+void print_align_left(const wchar_t* text, int total_width)
+{
+    int width = get_width(text);
+
+    wprintf(L"%ls", text);
+
+    for (int i = width; i < total_width; i++)
+    {
+        wprintf(L" ");
+    }
+}
+
+
+// 휴대폰 출력 함수
+void draw_phone()
+{
+    int x = 40;
+    int y = 3;
+
+    move_cursor(x, y);
+    wprintf(L"┌─────────────────────────────────────────┐");
+
+    for (int i = 1; i < 40; i++)
+    {
+        move_cursor(x, y + i);
+        wprintf(L"│                                         │");
+    }
+
+    move_cursor(x, y + 40);
+    wprintf(L"└─────────────────────────────────────────┘");
+}
+
+// 핸드폰 잠금화면 출력
+void draw_lock_screen()
+{
+    move_cursor(56, 6);
+    wprintf(L"6월 22일 (월)");
+
+    move_cursor(47, 9);
+    wprintf(L" __  ___        ______  ______\n");
+    move_cursor(47, 10);
+    wprintf(L"/_ | |__ \\   _  | ____| | ____|\n");
+    move_cursor(47, 11);
+    wprintf(L" | |    ) | (_) | |__   | |__\n");
+    move_cursor(47, 12);
+    wprintf(L" | |   / /      |___ \\  |___ \\ \n");
+    move_cursor(47, 13);
+    wprintf(L" | |  / /_   _   ___) |  ___) |\n");
+    move_cursor(47, 14);
+    wprintf(L" |_| |____| (_) |____/  |____/\n");
+}
+
+void draw_notification(const wchar_t* name, const wchar_t* msg)
+{
+    int x = 45;
+    int y = 32;
+
+    // 기존 내용 지우기
+    for (int i = 0; i < 4; i++)
+    {
+        move_cursor(x, y + i);
+        wprintf(L"                                ");
+    }
+
+    move_cursor(x, y);
+    wprintf(L"┌──────────────────────────────┐");
+
+    move_cursor(x, y + 1);
+    wprintf(L"│ ♥ ");
+    print_align_left(name, 24);
+    wprintf(L"  │");
+
+    move_cursor(x, y + 2);
+    wprintf(L"│ ");
+    print_align_left(msg, 29);
+    wprintf(L"│");
+
+    move_cursor(x, y + 3);
+    wprintf(L"└──────────────────────────────┘");
+}
+
 // ASCII ART 출력
 void draw_art()
 {
@@ -109,13 +209,6 @@ void draw_art()
 // 메뉴 출력
 void draw_menu()
 {
-    /* 게임 제목
-    setColor(15);
-
-    move_cursor(120, 18);
-    wprintf(L"게임 제목");
-    */
-
     // 메뉴 1
     if (menu == 1)
         setColor(14);
@@ -201,7 +294,6 @@ int RenderTitle()
             isRunning = 0;
         }
 
-
         break;
     }
 
@@ -212,38 +304,110 @@ int RenderTitle()
 int MainGame()
 {
     system("cls");
-    setColor(10);
-    move_cursor(70, 30);
-    wprintf(L"게임 시작!");
+
+    // 폰 출력
+    draw_phone();
+
+    // 잠금화면
+    draw_lock_screen();
+
+    // 1초 대기
+    Sleep(1000);
+
+    // 띠링
+    Beep(1200, 200);
+
+    // 첫 번째 알림
+    draw_notification(
+        L"여자친구",
+        L"자기야 오늘 무슨 날인지 알지?"
+    );
+
+    Sleep(2500);
+
+    // 두 번째 알림
+    Beep(1000, 200);
+
+    draw_notification(
+        L"여자친구",
+        L"나 오늘 이쁘게 입고 갈게!!"
+    );
+
+    Sleep(2500);
+
+    // 세 번째 알림
+    Beep(700, 400);
+
+    draw_notification(
+        L"여자친구",
+        L"터미널에 2시까지 와야해!!"
+    );
+
+    Sleep(3000);
+
+    //첫번째 대사
+    Beep(1200, 200);
+    move_cursor(100, 20);
+    wprintf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
+
+    Sleep(3000);
+
+    //두번째 대사
+    Beep(1200, 200);
+    move_cursor(100, 22);
+    wprintf(L"이은석 교수님 수업인데.. 흠...");
+
+    Sleep(3000);
+
+    //세번째 대사
+    Beep(1200, 200);
+    move_cursor(100, 24);
+    wprintf(L"친구한테 대리출석 부탁해야겠다.");
 
     _getch();
 
     return 0;
 }
+
 int GameEX()
 {
     system("cls");
+
     move_cursor(52, 10);
     wprintf(L"게임 설명");
+
     move_cursor(52, 12);
     wprintf(L"게임 설명하는 내용");
+
     move_cursor(52, 14);
-    wprintf(L"아무키나 누르면 타이틀로 돌아갑니더");
+    wprintf(L"아무키나 누르면 타이틀로 돌아갑니다.");
+
     _getch();
+
     return 0;
 }
+
 int Team()
 {
     system("cls");
+
     move_cursor(52, 8);
     wprintf(L"팀소개");
+
     move_cursor(52, 10);
     wprintf(L"조건우 조장");
+
     move_cursor(52, 12);
     wprintf(L"이경빈 천재");
+
     move_cursor(52, 14);
-    wprintf(L"아무키나 누르면 타이틀로 돌아갑니더");
+    wprintf(L"정나라 천재");
+
+    move_cursor(52, 16);
+    wprintf(L"아무키나 누르면 타이틀로 돌아갑니다.");
+
     _getch();
+
     return 0;
 }
 
@@ -272,25 +436,21 @@ int main()
         switch (gameStatus)
         {
         case 0:
-
             gameStatus = RenderTitle();
-
             break;
 
         case 2:
-
             gameStatus = MainGame();
-
             break;
-		case 3:
-			gameStatus = GameEX();
-			break;
-		case 4:
-            gameStatus = Team();
-			break;  
 
+        case 3:
+            gameStatus = GameEX();
+            break;
+
+        case 4:
+            gameStatus = Team();
+            break;
         }
-        
     }
 
     system("cls");

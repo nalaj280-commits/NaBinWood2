@@ -6,6 +6,7 @@
 #include <time.h>
 #include <stdlib.h>
 
+
 int floorNum = 1;
 int love = 50;
 int stamina = 100;
@@ -146,14 +147,14 @@ void drawMap()
 {
     system("cls");
 
-    printf("===== êµìˆ˜ë‹˜ ëª°ë˜ íƒˆì¶œí•˜ê¸° =====\n\n");
+    printf("===== ±³¼ö´Ô ¸ô·¡ Å»ÃâÇÏ±â =====\n\n");
 
-    printf("í˜„ì¬ ì¸µ : %dì¸µ\n", floorNum);
-    printf("ë‚¨ì€ ì‹œê°„ : %d\n", timeStat);
-    printf("ì—¬ìì¹œêµ¬ í˜¸ê°ë„ : %d\n", love);
-    printf("ìŠ¤íƒœë¯¸ë‚˜ : %d\n\n", stamina);
+    printf("ÇöÀç Ãş : %dÃş\n", floorNum);
+    printf("³²Àº ½Ã°£ : %d\n", timeStat);
+    printf("¿©ÀÚÄ£±¸ È£°¨µµ : %d\n", love);
+    printf("½ºÅÂ¹Ì³ª : %d\n\n", stamina);
 
-    printf("WASD : ì´ë™\n\n");
+    printf("WASD : ÀÌµ¿\n\n");
 
     for (int i = 0; i < 10; i++)
     {
@@ -251,34 +252,34 @@ void girlfriendEvent()
     system("cls");
 
     printf("==============================\n");
-    printf("        ì—¬ìì¹œêµ¬ ë¬¸ì\n");
+    printf("        ¿©ÀÚÄ£±¸ ¹®ÀÚ\n");
     printf("==============================\n\n");
 
-    printf("ì˜¤ëŠ˜ ì§„ì§œ ì˜¤ëŠ” ê±° ë§ì§€...?\n\n");
+    printf("¿À´Ã ÁøÂ¥ ¿À´Â °Å ¸ÂÁö...?\n\n");
 
-    printf("1. ê±°ì˜ ë‹¤ ì™”ì–´!\n");
-    printf("2. êµìˆ˜ë‹˜ì´ ì•ˆ ë³´ë‚´ì¤˜...\n");
-    printf("3. ì½ì”¹í•œë‹¤\n\n");
+    printf("1. °ÅÀÇ ´Ù ¿Ô¾î!\n");
+    printf("2. ±³¼ö´ÔÀÌ ¾È º¸³»Áà...\n");
+    printf("3. ÀĞ¾ÃÇÑ´Ù\n\n");
 
-    printf("ì„ íƒ : ");
+    printf("¼±ÅÃ : ");
     scanf("%d", &choice);
 
     if (choice == 1)
     {
         love += 15;
-        printf("\ní˜¸ê°ë„ ìƒìŠ¹!\n");
+        printf("\nÈ£°¨µµ »ó½Â!\n");
     }
 
     else if (choice == 2)
     {
         love -= 5;
-        printf("\nì—¬ìì¹œêµ¬ê°€ ì‹¤ë§í–ˆë‹¤...\n");
+        printf("\n¿©ÀÚÄ£±¸°¡ ½Ç¸ÁÇß´Ù...\n");
     }
 
     else
     {
         love -= 20;
-        printf("\nì—¬ìì¹œêµ¬ê°€ ì‚ì¡Œë‹¤...\n");
+        printf("\n¿©ÀÚÄ£±¸°¡ »ßÁ³´Ù...\n");
     }
 
     Sleep(2000);
@@ -291,24 +292,24 @@ void randomEvent()
     system("cls");
 
     printf("==============================\n");
-    printf("         ëœë¤ ì´ë²¤íŠ¸\n");
+    printf("         ·£´ı ÀÌº¥Æ®\n");
     printf("==============================\n\n");
 
     if (random == 0)
     {
-        printf("êµìˆ˜ë‹˜ì´ ë’¤ë¥¼ ëŒì•„ë´¤ë‹¤!\n");
+        printf("±³¼ö´ÔÀÌ µÚ¸¦ µ¹¾ÆºÃ´Ù!\n");
         stamina -= 10;
     }
 
     else if (random == 1)
     {
-        printf("ì¶œì„ ì²´í¬ê°€ ì‹œì‘ëë‹¤!\n");
+        printf("Ãâ¼® Ã¼Å©°¡ ½ÃÀÛµÆ´Ù!\n");
         timeStat -= 5;
     }
 
     else
     {
-        printf("ì¹œêµ¬ê°€ ëª°ë˜ ì¶œì„ì„ ëŒ€ì‹  ëˆŒëŸ¬ì¤¬ë‹¤!\n");
+        printf("Ä£±¸°¡ ¸ô·¡ Ãâ¼®À» ´ë½Å ´­·¯Áá´Ù!\n");
         timeStat += 5;
     }
 
@@ -320,17 +321,17 @@ void floorEffect()
     system("cls");
 
     printf("==============================\n");
-    printf("         %dì¸µ ë„ì°©\n", floorNum);
+    printf("         %dÃş µµÂø\n", floorNum);
     printf("==============================\n\n");
 
     if (floorNum == 2)
     {
-        printf("êµìˆ˜ë‹˜ì´ ë” ë¹¨ë¼ì¡Œë‹¤...\n");
+        printf("±³¼ö´ÔÀÌ ´õ »¡¶óÁ³´Ù...\n");
     }
 
     else if (floorNum == 3)
     {
-        printf("ì¶œêµ¬ê°€ ì–¼ë§ˆ ë‚¨ì§€ ì•Šì•˜ë‹¤!\n");
+        printf("Ãâ±¸°¡ ¾ó¸¶ ³²Áö ¾Ê¾Ò´Ù!\n");
     }
 
     Sleep(2000);
@@ -388,8 +389,8 @@ int main()
             printf("         GAME OVER\n");
             printf("==============================\n\n");
 
-            printf("êµìˆ˜ë‹˜ì—ê²Œ ë¶™ì¡í˜”ìŠµë‹ˆë‹¤...\n");
-            printf("êµìˆ˜ë‹˜ : ë‹¤ìŒ ê³¼ì œëŠ” ê°œì¸ í”„ë¡œì íŠ¸ë‹¤.\n");
+            printf("±³¼ö´Ô¿¡°Ô ºÙÀâÇû½À´Ï´Ù...\n");
+            printf("±³¼ö´Ô : ´ÙÀ½ °úÁ¦´Â °³ÀÎ ÇÁ·ÎÁ§Æ®´Ù.\n");
 
             break;
         }
@@ -399,29 +400,29 @@ int main()
             system("cls");
 
             printf("==============================\n");
-            printf("          íƒˆì¶œ ì„±ê³µ\n");
+            printf("          Å»Ãâ ¼º°ø\n");
             printf("==============================\n\n");
 
             if (love >= 80)
             {
                 printf("TRUE END\n\n");
-                printf("ì™„ë²½í•œ ê¸°ë…ì¼ ì„±ê³µ!\n");
+                printf("¿Ïº®ÇÑ ±â³äÀÏ ¼º°ø!\n");
             }
 
             else if (love >= 60)
             {
                 printf("GOOD END\n\n");
-                printf("ê¸°ë…ì¼ ì¥ì†Œ ë„ì°© ì„±ê³µ!\n");
+                printf("±â³äÀÏ Àå¼Ò µµÂø ¼º°ø!\n");
             }
 
             else
             {
                 printf("NORMAL END\n\n");
-                printf("ë„ì°©ì€ í–ˆì§€ë§Œ ë¶„ìœ„ê¸°ê°€ ì–´ìƒ‰í•˜ë‹¤...\n");
+                printf("µµÂøÀº ÇßÁö¸¸ ºĞÀ§±â°¡ ¾î»öÇÏ´Ù...\n");
             }
 
-            printf("\nìµœì¢… í˜¸ê°ë„ : %d\n", love);
-            printf("ë‚¨ì€ ì‹œê°„ : %d\n", timeStat);
+            printf("\nÃÖÁ¾ È£°¨µµ : %d\n", love);
+            printf("³²Àº ½Ã°£ : %d\n", timeStat);
 
             break;
         }
