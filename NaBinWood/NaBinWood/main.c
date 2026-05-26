@@ -286,12 +286,12 @@ int main()
             gameStatus = MainGame();
 
             break;
-		case 3:
-			gameStatus = GameEX();
-			break;
-		case 4:
+        case 3:
+            gameStatus = GameEX();
+            break;
+        case 4:
             gameStatus = Team();
-			break;  
+            break;  
 
         }
         
