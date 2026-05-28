@@ -71,10 +71,8 @@ int main() {
 
     bool bossActive = true;
     int bossFollowTimer = 0;
-
-    // [기믹 추가]: 옷장에서 보스가 완전히 사라진 후, 다음 방으로 넘어갔을 때 작동할 타이머 변수
     int bossReappearTimer = 0;
-    bool bossWaitingAfterHide = false; // 옷장 은신으로 보스를 완전히 따돌렸는지 여부 플래그
+    bool bossWaitingAfterHide = false;
 
     bool isHidden = false;
     bool spacePressed = false;
@@ -82,6 +80,7 @@ int main() {
 
     int playerMoveTurn = 0;
     int monsterMoveTurn = 0;
+    int monsterSubTurn = 0; // 미세 속도 조절을 위한 서브 변수
 
     int i, j;
     int nextX, nextY;
@@ -179,20 +178,16 @@ int main() {
                             targetRoom = tileValue - 2;
 
                             if (bossActive) {
-                                // 추격 도중 문으로 도망친 경우 (기존 역추격 타이머)
                                 bossFollowTimer = 40;
                                 bossActive = false;
                             }
                             else {
-                                // [형님 요청 반영]: 옷장에 숨어서 보스가 완전히 퇴장한 상태(mx == -10)였다면,
-                                // 다음 방으로 넘어가는 순간 재등장 카운트다운 타이머를 시동합니다!
-                                if (bossWaitingAfterHide && mx == -10) {
-                                    bossReappearTimer = 150; // 약 4.5초 뒤 재등장 (수치 조절 가능)
-                                    bossWaitingAfterHide = false; // 플래그 해제
+                                if (bossWaitingAfterHide) {
+                                    bossReappearTimer = 25; // 0.8초 뒤 기습 등장
+                                    bossWaitingAfterHide = false;
                                 }
                             }
 
-                            // 방 이동 순간 텔레포트 좌표 셋팅
                             if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
                             else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 3; }
                             else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; }
@@ -235,52 +230,62 @@ int main() {
             }
         }
 
-        // [형님 요청 기믹]: 옷장 은신 성공 후, 다음 방으로 넘어갔을 때 실시간 타이머 계산
+        // 옷장 은신 성공 후, 다음 방 문(D) 위치에서 기습 등장 타이머 (0.8초)
         if (!bossActive && bossReappearTimer > 0) {
             bossReappearTimer--;
             if (bossReappearTimer == 0) {
                 bossActive = true;
-                // 플레이어가 있는 현재 방의 우측 상단 구석탱이에서 기습 리스폰!
-                mx = MAP_WIDTH - 2;
-                my = 2;
+
+                if (currentRoom == 1 && prevRoom == 0) { mx = 20; my = MAP_HEIGHT - 2; }
+                else if (currentRoom == 0 && prevRoom == 1) { mx = 20; my = 1; }
+                else if (currentRoom == 2 && prevRoom == 1) { mx = MAP_WIDTH - 2; my = 10; }
+                else if (currentRoom == 1 && prevRoom == 2) { mx = 1; my = 10; }
+                else if (currentRoom == 3 && prevRoom == 0) { mx = 1; my = 10; }
+                else if (currentRoom == 0 && prevRoom == 3) { mx = MAP_WIDTH - 2; my = 10; }
+                else { mx = MAP_WIDTH - 2; my = 2; }
             }
         }
 
         // 6. 아오오니 AI
-        if (bossActive) {
+        if (bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
-            if (monsterMoveTurn >= 3) {
-                targetX = mx;
-                targetY = my;
+            if (monsterMoveTurn >= 2) {
+                // [이속 미세 하향]: 플레이어(2루프당 1칸)보다 아주 살짝만 느리게 조절 (5루프당 2칸 이동 효과)
+                monsterSubTurn++;
+                if (monsterSubTurn % 5 != 0) {
+                    targetX = mx;
+                    targetY = my;
 
-                if (!isHidden) {
-                    if (mx < px) targetX++;
-                    else if (mx > px) targetX--;
-                    if (my < py) targetY++;
-                    else if (my > py) targetY--;
-                }
-                else {
-                    if (mx < px) targetX++;
-                    else if (mx > px) targetX--;
-                    if (my < py) targetY++;
-                    else if (my > py) targetY--;
-
-                    // 옷장 바로 앞(거리 1 이하)까지 도달하면 타임아웃 퇴장
-                    if (abs(mx - px) <= 1 && abs(my - py) <= 1) {
-                        bossActive = false;
-                        bossFollowTimer = 0;
-                        bossWaitingAfterHide = true; // 대기 플래그 ON (이제 다음 방 넘어가면 타이머 시작)
-                        mx = -10; my = -10;
+                    if (!isHidden) {
+                        if (mx < px) targetX++;
+                        else if (mx > px) targetX--;
+                        if (my < py) targetY++;
+                        else if (my > py) targetY--;
                     }
-                }
+                    else {
+                        if (mx < px) targetX++;
+                        else if (mx > px) targetX--;
+                        if (my < py) targetY++;
+                        else if (my > py) targetY--;
 
-                if (currentMap[targetY][targetX] != 1) {
-                    mx = targetX;
-                    my = targetY;
-                }
-                else {
-                    if (currentMap[my][targetX] != 1) mx = targetX;
-                    else if (currentMap[targetY][mx] != 1) my = targetY;
+                        if (abs(mx - px) <= 1 && abs(my - py) <= 1) {
+                            bossActive = false;
+                            bossFollowTimer = 0;
+                            bossWaitingAfterHide = true;
+                            mx = -10; my = -10;
+                        }
+                    }
+
+                    if (mx != -10 && my != -10) {
+                        if (currentMap[targetY][targetX] != 1) {
+                            mx = targetX;
+                            my = targetY;
+                        }
+                        else {
+                            if (currentMap[my][targetX] != 1) mx = targetX;
+                            else if (currentMap[targetY][mx] != 1) my = targetY;
+                        }
+                    }
                 }
                 monsterMoveTurn = 0;
             }
