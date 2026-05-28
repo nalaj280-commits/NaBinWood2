@@ -251,7 +251,7 @@ void draw_menu()
 // 타이틀 화면
 int RenderTitle()
 {
-    system("cls");
+    
 
     draw_art();
 
@@ -366,6 +366,7 @@ int MainGame()
 
     _getch();
 
+	system("cls");
     return 0;
 }
 
@@ -411,11 +412,27 @@ int Team()
     return 0;
 }
 
+int start_game()
+{
+	move_cursor(52, 10);
+	wprintf(L"Alt 와 Enter를 동시에 눌러 전체화면으로 플레이 해주세요");
+    Sleep(8000);
+
+	return 0;
+}
+
+// 메인
 // 메인
 int main()
 {
     // 콘솔 핸들
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    // [추가] 콘솔 커서 숨기기 설정
+    CONSOLE_CURSOR_INFO cursorInfo;
+    GetConsoleCursorInfo(hConsole, &cursorInfo);
+    cursorInfo.bVisible = FALSE; // 커서를 보이지 않게 설정
+    SetConsoleCursorInfo(hConsole, &cursorInfo);
 
     // UTF16 출력
     _setmode(_fileno(stdout), _O_U16TEXT);
@@ -428,6 +445,8 @@ int main()
 
     // 배경 검정
     system("color 00");
+
+    start_game();
 
     int gameStatus = 0;
 
@@ -449,10 +468,13 @@ int main()
 
         case 4:
             gameStatus = Team();
-			break;  
-
+            break;
         }
     }
+
+    // 종료 시점에 커서 다시 켜주기 (매너)
+    cursorInfo.bVisible = TRUE;
+    SetConsoleCursorInfo(hConsole, &cursorInfo);
 
     system("cls");
 
