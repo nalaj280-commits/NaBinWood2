@@ -33,28 +33,28 @@ void initWorldMaps() {
         }
     }
 
-    // --- [Room 0: ëŒ€ì €íƒ í˜„ê´€ ë¡œë¹„] ---
+    // --- [Room 0: ´ëÀúÅÃ Çö°ü ·Îºñ] ---
     for (j = 15; j <= 24; j++) { world_maps[0][9][j] = 1; world_maps[0][10][j] = 1; }
     world_maps[0][3][5] = 1; world_maps[0][3][34] = 1;
     world_maps[0][1][20] = 3;
     world_maps[0][10][MAP_WIDTH - 2] = 5;
     world_maps[0][2][2] = 6; world_maps[0][2][3] = 6;
 
-    // --- [Room 1: Cozy Bedroom (ì¹¨ì‹¤)] ---
+    // --- [Room 1: Cozy Bedroom (Ä§½Ç)] ---
     for (i = 3; i <= 6; i++) { for (j = 4; j <= 8; j++) world_maps[1][i][j] = 1; }
     for (j = 25; j <= 35; j++) world_maps[1][15][j] = 1;
     world_maps[1][MAP_HEIGHT - 2][20] = 2;
     world_maps[1][10][1] = 4;
     world_maps[1][2][36] = 6; world_maps[1][2][37] = 6;
 
-    // --- [Room 2: ë¹„ë°€ì˜ ì„œìž¬] ---
+    // --- [Room 2: ºñ¹ÐÀÇ ¼­Àç] ---
     for (i = 3; i <= 14; i += 3) {
         for (j = 5; j <= 30; j++) world_maps[2][i][j] = 1;
     }
     world_maps[2][10][MAP_WIDTH - 2] = 3;
     world_maps[2][1][1] = 6; world_maps[2][1][2] = 6;
 
-    // --- [Room 3: ì–´ë‘ìš´ ê¸´ ë³µë„] ---
+    // --- [Room 3: ¾îµÎ¿î ±ä º¹µµ] ---
     for (i = 4; i <= 15; i += 4) {
         for (j = 10; j <= 15; j++) world_maps[3][i][j] = 1;
         for (j = 25; j <= 30; j++) world_maps[3][i + 2][j] = 1;
@@ -72,9 +72,9 @@ int main() {
     bool bossActive = true;
     int bossFollowTimer = 0;
 
-    // [ê¸°ë¯¹ ì¶”ê°€]: ì˜·ìž¥ì—ì„œ ë³´ìŠ¤ê°€ ì™„ì „ížˆ ì‚¬ë¼ì§„ í›„, ë‹¤ìŒ ë°©ìœ¼ë¡œ ë„˜ì–´ê°”ì„ ë•Œ ìž‘ë™í•  íƒ€ì´ë¨¸ ë³€ìˆ˜
+    // [±â¹Í Ãß°¡]: ¿ÊÀå¿¡¼­ º¸½º°¡ ¿ÏÀüÈ÷ »ç¶óÁø ÈÄ, ´ÙÀ½ ¹æÀ¸·Î ³Ñ¾î°¬À» ¶§ ÀÛµ¿ÇÒ Å¸ÀÌ¸Ó º¯¼ö
     int bossReappearTimer = 0;
-    bool bossWaitingAfterHide = false; // ì˜·ìž¥ ì€ì‹ ìœ¼ë¡œ ë³´ìŠ¤ë¥¼ ì™„ì „ížˆ ë”°ëŒë ¸ëŠ”ì§€ ì—¬ë¶€ í”Œëž˜ê·¸
+    bool bossWaitingAfterHide = false; // ¿ÊÀå Àº½ÅÀ¸·Î º¸½º¸¦ ¿ÏÀüÈ÷ µûµ¹·È´ÂÁö ¿©ºÎ ÇÃ·¡±×
 
     bool isHidden = false;
     bool spacePressed = false;
@@ -108,7 +108,7 @@ int main() {
     while (!gameOver) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-        // 1. í™”ë©´ ë Œë”ë§
+        // 1. È­¸é ·»´õ¸µ
         gotoxy(0, 0);
         printf("+-------------------------------------------------------------------------------+\n");
         printf("| Room: %-30s | Status: %-27s |\n", roomNames[currentRoom], isHidden ? "HIDING IN CLOSET" : "SURVIVING...");
@@ -139,13 +139,13 @@ int main() {
             printf("\n");
         }
 
-        // 2. ìž¡í˜”ì„ ë•Œ ê²Œìž„ ì˜¤ë²„ íŒì •
+        // 2. ÀâÇûÀ» ¶§ °ÔÀÓ ¿À¹ö ÆÇÁ¤
         if (bossActive && !isHidden && px == mx && py == my) {
             gameOver = true;
             break;
         }
 
-        // 3. ìˆ¨ê¸° ê¸°ë¯¹ ì²˜ë¦¬ (Spacebar)
+        // 3. ¼û±â ±â¹Í Ã³¸® (Spacebar)
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
                 if (currentMap[py][px] == 6) {
@@ -158,7 +158,7 @@ int main() {
             spacePressed = false;
         }
 
-        // 4. í”Œë ˆì´ì–´ ì´ë™ ë° ì‹¤ì‹œê°„ ë°© ì „í™˜ íŒì •
+        // 4. ÇÃ·¹ÀÌ¾î ÀÌµ¿ ¹× ½Ç½Ã°£ ¹æ ÀüÈ¯ ÆÇÁ¤
         if (!isHidden) {
             playerMoveTurn++;
             if (playerMoveTurn >= 2) {
@@ -179,20 +179,20 @@ int main() {
                             targetRoom = tileValue - 2;
 
                             if (bossActive) {
-                                // ì¶”ê²© ë„ì¤‘ ë¬¸ìœ¼ë¡œ ë„ë§ì¹œ ê²½ìš° (ê¸°ì¡´ ì—­ì¶”ê²© íƒ€ì´ë¨¸)
+                                // Ãß°Ý µµÁß ¹®À¸·Î µµ¸ÁÄ£ °æ¿ì (±âÁ¸ ¿ªÃß°Ý Å¸ÀÌ¸Ó)
                                 bossFollowTimer = 40;
                                 bossActive = false;
                             }
                             else {
-                                // [í˜•ë‹˜ ìš”ì²­ ë°˜ì˜]: ì˜·ìž¥ì— ìˆ¨ì–´ì„œ ë³´ìŠ¤ê°€ ì™„ì „ížˆ í‡´ìž¥í•œ ìƒíƒœ(mx == -10)ì˜€ë‹¤ë©´,
-                                // ë‹¤ìŒ ë°©ìœ¼ë¡œ ë„˜ì–´ê°€ëŠ” ìˆœê°„ ìž¬ë“±ìž¥ ì¹´ìš´íŠ¸ë‹¤ìš´ íƒ€ì´ë¨¸ë¥¼ ì‹œë™í•©ë‹ˆë‹¤!
+                                // [Çü´Ô ¿äÃ» ¹Ý¿µ]: ¿ÊÀå¿¡ ¼û¾î¼­ º¸½º°¡ ¿ÏÀüÈ÷ ÅðÀåÇÑ »óÅÂ(mx == -10)¿´´Ù¸é,
+                                // ´ÙÀ½ ¹æÀ¸·Î ³Ñ¾î°¡´Â ¼ø°£ ÀçµîÀå Ä«¿îÆ®´Ù¿î Å¸ÀÌ¸Ó¸¦ ½Ãµ¿ÇÕ´Ï´Ù!
                                 if (bossWaitingAfterHide && mx == -10) {
-                                    bossReappearTimer = 150; // ì•½ 4.5ì´ˆ ë’¤ ìž¬ë“±ìž¥ (ìˆ˜ì¹˜ ì¡°ì ˆ ê°€ëŠ¥)
-                                    bossWaitingAfterHide = false; // í”Œëž˜ê·¸ í•´ì œ
+                                    bossReappearTimer = 150; // ¾à 4.5ÃÊ µÚ ÀçµîÀå (¼öÄ¡ Á¶Àý °¡´É)
+                                    bossWaitingAfterHide = false; // ÇÃ·¡±× ÇØÁ¦
                                 }
                             }
 
-                            // ë°© ì´ë™ ìˆœê°„ í…”ë ˆí¬íŠ¸ ì¢Œí‘œ ì…‹íŒ…
+                            // ¹æ ÀÌµ¿ ¼ø°£ ÅÚ·¹Æ÷Æ® ÁÂÇ¥ ¼ÂÆÃ
                             if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
                             else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 3; }
                             else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; }
@@ -220,7 +220,7 @@ int main() {
             break;
         }
 
-        // 5. ë¬¸ìœ¼ë¡œ ë„ë§ì³¤ì„ ë•Œì˜ ë³´ìŠ¤ ì—­ì¶”ê²© ë¦¬ìŠ¤í° ë¡œì§
+        // 5. ¹®À¸·Î µµ¸ÁÃÆÀ» ¶§ÀÇ º¸½º ¿ªÃß°Ý ¸®½ºÆù ·ÎÁ÷
         if (!bossActive && bossFollowTimer > 0) {
             bossFollowTimer--;
             if (bossFollowTimer == 0) {
@@ -235,18 +235,18 @@ int main() {
             }
         }
 
-        // [í˜•ë‹˜ ìš”ì²­ ê¸°ë¯¹]: ì˜·ìž¥ ì€ì‹  ì„±ê³µ í›„, ë‹¤ìŒ ë°©ìœ¼ë¡œ ë„˜ì–´ê°”ì„ ë•Œ ì‹¤ì‹œê°„ íƒ€ì´ë¨¸ ê³„ì‚°
+        // [Çü´Ô ¿äÃ» ±â¹Í]: ¿ÊÀå Àº½Å ¼º°ø ÈÄ, ´ÙÀ½ ¹æÀ¸·Î ³Ñ¾î°¬À» ¶§ ½Ç½Ã°£ Å¸ÀÌ¸Ó °è»ê
         if (!bossActive && bossReappearTimer > 0) {
             bossReappearTimer--;
             if (bossReappearTimer == 0) {
                 bossActive = true;
-                // í”Œë ˆì´ì–´ê°€ ìžˆëŠ” í˜„ìž¬ ë°©ì˜ ìš°ì¸¡ ìƒë‹¨ êµ¬ì„íƒ±ì´ì—ì„œ ê¸°ìŠµ ë¦¬ìŠ¤í°!
+                // ÇÃ·¹ÀÌ¾î°¡ ÀÖ´Â ÇöÀç ¹æÀÇ ¿ìÃø »ó´Ü ±¸¼®ÅÊÀÌ¿¡¼­ ±â½À ¸®½ºÆù!
                 mx = MAP_WIDTH - 2;
                 my = 2;
             }
         }
 
-        // 6. ì•„ì˜¤ì˜¤ë‹ˆ AI
+        // 6. ¾Æ¿À¿À´Ï AI
         if (bossActive) {
             monsterMoveTurn++;
             if (monsterMoveTurn >= 3) {
@@ -265,11 +265,11 @@ int main() {
                     if (my < py) targetY++;
                     else if (my > py) targetY--;
 
-                    // ì˜·ìž¥ ë°”ë¡œ ì•ž(ê±°ë¦¬ 1 ì´í•˜)ê¹Œì§€ ë„ë‹¬í•˜ë©´ íƒ€ìž„ì•„ì›ƒ í‡´ìž¥
+                    // ¿ÊÀå ¹Ù·Î ¾Õ(°Å¸® 1 ÀÌÇÏ)±îÁö µµ´ÞÇÏ¸é Å¸ÀÓ¾Æ¿ô ÅðÀå
                     if (abs(mx - px) <= 1 && abs(my - py) <= 1) {
                         bossActive = false;
                         bossFollowTimer = 0;
-                        bossWaitingAfterHide = true; // ëŒ€ê¸° í”Œëž˜ê·¸ ON (ì´ì œ ë‹¤ìŒ ë°© ë„˜ì–´ê°€ë©´ íƒ€ì´ë¨¸ ì‹œìž‘)
+                        bossWaitingAfterHide = true; // ´ë±â ÇÃ·¡±× ON (ÀÌÁ¦ ´ÙÀ½ ¹æ ³Ñ¾î°¡¸é Å¸ÀÌ¸Ó ½ÃÀÛ)
                         mx = -10; my = -10;
                     }
                 }
@@ -291,7 +291,7 @@ int main() {
 
     system("cls");
     printf("\n\n\n\n\t[ GAME OVER ]\n");
-    printf("\tëŒ€ì €íƒì—ì„œ íƒˆì¶œí•˜ì§€ ëª»í•˜ê³  ìž¡í˜”ìŠµë‹ˆë‹¤...\n\n\n");
+    printf("\t´ëÀúÅÃ¿¡¼­ Å»ÃâÇÏÁö ¸øÇÏ°í ÀâÇû½À´Ï´Ù...\n\n\n");
 
     return 0;
 }
