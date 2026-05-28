@@ -145,7 +145,7 @@ void draw_notification(const wchar_t* name, const wchar_t* msg)
 // ASCII ART 출력
 void draw_art()
 {
-	FILE* fp = fopen("art.txt", "rb");
+    FILE* fp = fopen("art_title.txt", "rb");
 
 	if (!fp)
 	{
@@ -251,11 +251,18 @@ void draw_menu()
 // 타이틀 화면
 int RenderTitle()
 {
+    static int first = 1;
 
+    // 처음 한 번만 그림 출력
+    if (first)
+    {
+        system("cls");
+        draw_art();
+        first = 0;
+    }
 
-	draw_art();
-
-	draw_menu();
+    // 메뉴만 다시 그림
+    draw_menu();
 
 	char a = _getch();
 
@@ -277,22 +284,24 @@ int RenderTitle()
 
 	case 13:
 
-		if (menu == 1)
-		{
-			return 2;
-		}
-		else if (menu == 2)
-		{
-			return 3;
-		}
-		else if (menu == 3)
-		{
-			return 4;
-		}
-		else if (menu == 4)
-		{
-			isRunning = 0;
-		}
+        first = 1; // 다른 화면 갔다가 다시 타이틀 올 때 재출력
+
+        if (menu == 1)
+        {
+            return 2;
+        }
+        else if (menu == 2)
+        {
+            return 3;
+        }
+        else if (menu == 3)
+        {
+            return 4;
+        }
+        else if (menu == 4)
+        {
+            isRunning = 0;
+        }
 
 		break;
 	}
@@ -359,10 +368,10 @@ int MainGame()
 
 	Sleep(3000);
 
-	//세번째 대사
-	Beep(1200, 200);
-	move_cursor(100, 24);
-	wprintf(L"친구한테 대리출석 부탁해야겠다.");
+    //세번째 대사
+    Beep(1200, 200);
+    move_cursor(100, 24);
+    wprintf(L"영찬이한테 대리출석 부탁해야겠다.");
 
 	_getch();
 
@@ -473,11 +482,7 @@ int main()
 		}
 	}
 
-	// 종료 시점에 커서 다시 켜주기 (매너)
-	cursorInfo.bVisible = TRUE;
-	SetConsoleCursorInfo(hConsole, &cursorInfo);
-
-	system("cls");
+    system("cls");
 
 	return 0;
 }

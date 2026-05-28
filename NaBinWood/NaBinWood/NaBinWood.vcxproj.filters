@@ -20,6 +20,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\art.txt" />
+    <Text Include="art_original.txt" />
+    <Text Include="art_title.txt" />
   </ItemGroup>
 </Project>
