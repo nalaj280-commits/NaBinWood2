@@ -8,6 +8,10 @@
 #define MAP_HEIGHT 20
 #define NUM_ROOMS 4
 
+#define KEY_UP 72
+#define KEY_DOWN 80
+#define KEY_ENTER 13
+
 void gotoxy(int x, int y) {
     COORD pos;
     pos.X = x;
@@ -16,6 +20,13 @@ void gotoxy(int x, int y) {
 }
 
 int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
+
+// 아이템 관련 전역 변수
+int itemRoom = 3;
+int itemX = 35;
+int itemY = 2;
+bool hasKey = false;
+bool isItemPicked = false;
 
 void initWorldMaps() {
     int r, i, j;
@@ -49,9 +60,11 @@ void initWorldMaps() {
 
     // --- [Room 2: 비밀의 서재] ---
     for (i = 3; i <= 14; i += 3) {
-        for (j = 5; j <= 30; j++) world_maps[2][i][j] = 1;
+        for (j = 5; j <= 34; j++) world_maps[2][i][j] = 1; // 책장 배치 살짝 조정
     }
+    // [구조 변경] 오른쪽 문(3)은 침실과 연결되는 일반 문 / 왼쪽 문(7)을 탈출 전용 문으로 새로 신설!
     world_maps[2][10][MAP_WIDTH - 2] = 3;
+    world_maps[2][10][1] = 7; // 탈출 전용 특수 타일 넘버 '7' 지정
     world_maps[2][1][1] = 6; world_maps[2][1][2] = 6;
 
     // --- [Room 3: 어두운 긴 복도] ---
@@ -77,10 +90,11 @@ int main() {
     bool isHidden = false;
     bool spacePressed = false;
     bool gameOver = false;
+    bool gameClear = false;
 
     int playerMoveTurn = 0;
     int monsterMoveTurn = 0;
-    int monsterSubTurn = 0; // 미세 속도 조절을 위한 서브 변수
+    int monsterSubTurn = 0;
 
     int i, j;
     int nextX, nextY;
@@ -104,13 +118,14 @@ int main() {
 
     system("cls");
 
-    while (!gameOver) {
+    while (!gameOver && !gameClear) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
         // 1. 화면 렌더링
         gotoxy(0, 0);
         printf("+-------------------------------------------------------------------------------+\n");
         printf("| Room: %-30s | Status: %-27s |\n", roomNames[currentRoom], isHidden ? "HIDING IN CLOSET" : "SURVIVING...");
+        printf("| Inventory: %-66s |\n", hasKey ? "[KEY]" : "EMPTY");
         printf("+-------------------------------------------------------------------------------+\n");
 
         for (i = 0; i < MAP_HEIGHT; i++) {
@@ -121,8 +136,11 @@ int main() {
                 else if (i == my && j == mx && bossActive) {
                     printf("M ");
                 }
-                else if (currentMap[i][j] >= 2 && currentMap[i][j] <= 5) {
-                    printf("D ");
+                else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) {
+                    printf("* ");
+                }
+                else if ((currentMap[i][j] >= 2 && currentMap[i][j] <= 5) || currentMap[i][j] == 7) {
+                    printf("D "); // 새로 만든 왼쪽 탈출 문도 화면에는 'D'로 출력되게 설정
                 }
                 else if (currentMap[i][j] == 1) {
                     if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) printf("# ");
@@ -144,9 +162,19 @@ int main() {
             break;
         }
 
-        // 3. 숨기 기믹 처리 (Spacebar)
+        // 3. 스페이스바 입력 처리 (숨기기 OR 아이템 줍기)
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
+                if (currentRoom == itemRoom && !isItemPicked) {
+                    if (abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
+                        hasKey = true;
+                        isItemPicked = true;
+                        gotoxy(0, MAP_HEIGHT + 4);
+                        printf("[!] 탈출 열쇠를 획득했습니다!                      \n");
+                        Sleep(600);
+                    }
+                }
+
                 if (currentMap[py][px] == 6) {
                     isHidden = !isHidden;
                 }
@@ -173,24 +201,66 @@ int main() {
                     if (currentMap[nextY][nextX] != 1) {
                         tileValue = currentMap[nextY][nextX];
 
+                        // [기믹 수정] 비밀의 서재(Room 2)의 '새로운 왼쪽 탈출 전용 문(7)' 상호작용
+                        if (currentRoom == 2 && tileValue == 7) {
+                            system("cls");
+                            if (!hasKey) {
+                                gotoxy(5, MAP_HEIGHT / 2);
+                                printf("[!] 탈출구가 굳게 잠겨 있습니다. '열쇠가 없습니다.'");
+                                gotoxy(5, (MAP_HEIGHT / 2) + 2);
+                                printf("돌아가려면 아무 키나 누르십시오...");
+                                while (!(GetAsyncKeyState(VK_SPACE) & 0x8000) && !(GetAsyncKeyState(VK_RETURN) & 0x8000)) { Sleep(30); }
+                                system("cls");
+                            }
+                            else {
+                                int selection = 0;
+                                bool menuActive = true;
+
+                                while (menuActive) {
+                                    gotoxy(5, MAP_HEIGHT / 2);
+                                    printf("★ 탈출구 앞에서 열쇠를 사용하시겠습니까? ★");
+
+                                    gotoxy(7, (MAP_HEIGHT / 2) + 3);
+                                    if (selection == 0) printf("▶ 예      아니오");
+                                    else printf("   예   ▶ 아니오");
+
+                                    if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
+                                    if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
+                                    if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+                                        if (selection == 0) {
+                                            gameClear = true;
+                                        }
+                                        menuActive = false;
+                                    }
+                                    Sleep(100);
+                                }
+                                system("cls");
+                                if (gameClear) break;
+                            }
+                            playerMoveTurn = 0;
+                            continue;
+                        }
+
+                        // 일반적인 문 이동 처리 (오른쪽 문 포함)
                         if (tileValue >= 2 && tileValue <= 5) {
                             prevRoom = currentRoom;
                             targetRoom = tileValue - 2;
 
                             if (bossActive) {
-                                bossFollowTimer = 40;
+                                bossFollowTimer = 25;
                                 bossActive = false;
                             }
                             else {
                                 if (bossWaitingAfterHide) {
-                                    bossReappearTimer = 25; // 0.8초 뒤 기습 등장
+                                    bossReappearTimer = 25;
                                     bossWaitingAfterHide = false;
                                 }
                             }
 
+                            // 방 전환 시 플레이어 초기 위치 설정
                             if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
                             else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 3; }
-                            else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; }
+                            else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; } // 서재 들어올 땐 우측으로 진입
                             else if (currentRoom == 2 && targetRoom == 1) { px = 3; py = 10; }
                             else if (currentRoom == 0 && targetRoom == 3) { px = 3; py = 10; }
                             else if (currentRoom == 3 && targetRoom == 0) { px = MAP_WIDTH - 3; py = 10; }
@@ -215,7 +285,7 @@ int main() {
             break;
         }
 
-        // 5. 문으로 도망쳤을 때의 보스 역추격 리스폰 로직
+        // 5. 문 리스폰 및 복귀 제어 타이머 로직
         if (!bossActive && bossFollowTimer > 0) {
             bossFollowTimer--;
             if (bossFollowTimer == 0) {
@@ -230,12 +300,10 @@ int main() {
             }
         }
 
-        // 옷장 은신 성공 후, 다음 방 문(D) 위치에서 기습 등장 타이머 (0.8초)
         if (!bossActive && bossReappearTimer > 0) {
             bossReappearTimer--;
             if (bossReappearTimer == 0) {
                 bossActive = true;
-
                 if (currentRoom == 1 && prevRoom == 0) { mx = 20; my = MAP_HEIGHT - 2; }
                 else if (currentRoom == 0 && prevRoom == 1) { mx = 20; my = 1; }
                 else if (currentRoom == 2 && prevRoom == 1) { mx = MAP_WIDTH - 2; my = 10; }
@@ -250,7 +318,6 @@ int main() {
         if (bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
             if (monsterMoveTurn >= 2) {
-                // [이속 미세 하향]: 플레이어(2루프당 1칸)보다 아주 살짝만 느리게 조절 (5루프당 2칸 이동 효과)
                 monsterSubTurn++;
                 if (monsterSubTurn % 5 != 0) {
                     targetX = mx;
@@ -295,8 +362,15 @@ int main() {
     }
 
     system("cls");
-    printf("\n\n\n\n\t[ GAME OVER ]\n");
-    printf("\t대저택에서 탈출하지 못하고 잡혔습니다...\n\n\n");
+    if (gameClear) {
+        printf("\n\n\n\n\t🎉 [ STAGE CLEAR ] 🎉\n");
+        printf("\t서재 왼쪽 숨겨진 문을 열고 저택에서 완벽하게 탈출했습니다!\n");
+        printf("\t최종 생존을 축하드립니다, 형님!\n\n\n");
+    }
+    else {
+        printf("\n\n\n\n\t[ GAME OVER ]\n");
+        printf("\t대저택에서 탈출하지 못하고 잡혔습니다...\n\n\n");
+    }
 
     return 0;
 }
