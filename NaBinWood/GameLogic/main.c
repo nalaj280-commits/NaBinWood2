@@ -10,7 +10,6 @@
 
 #define KEY_UP 72
 #define KEY_DOWN 80
-#define KEY_ENTER 13
 
 void gotoxy(int x, int y) {
     COORD pos;
@@ -23,8 +22,8 @@ int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
 
 // 아이템 관련 전역 변수
 int itemRoom = 3;
-int itemX = 35;
-int itemY = 2;
+int itemX = 33;
+int itemY = 10;
 bool hasKey = false;
 bool isItemPicked = false;
 
@@ -60,11 +59,10 @@ void initWorldMaps() {
 
     // --- [Room 2: 비밀의 서재] ---
     for (i = 3; i <= 14; i += 3) {
-        for (j = 5; j <= 34; j++) world_maps[2][i][j] = 1; // 책장 배치 살짝 조정
+        for (j = 5; j <= 34; j++) world_maps[2][i][j] = 1;
     }
-    // [구조 변경] 오른쪽 문(3)은 침실과 연결되는 일반 문 / 왼쪽 문(7)을 탈출 전용 문으로 새로 신설!
     world_maps[2][10][MAP_WIDTH - 2] = 3;
-    world_maps[2][10][1] = 7; // 탈출 전용 특수 타일 넘버 '7' 지정
+    world_maps[2][10][1] = 7;
     world_maps[2][1][1] = 6; world_maps[2][1][2] = 6;
 
     // --- [Room 3: 어두운 긴 복도] ---
@@ -80,9 +78,10 @@ int main() {
     int currentRoom = 0;
     int prevRoom = 0;
     int px = 20, py = 14;
-    int mx = 30, my = 5;
 
-    bool bossActive = true;
+    int mx = -10, my = -10;
+
+    bool bossActive = false;
     int bossFollowTimer = 0;
     int bossReappearTimer = 0;
     bool bossWaitingAfterHide = false;
@@ -140,7 +139,7 @@ int main() {
                     printf("* ");
                 }
                 else if ((currentMap[i][j] >= 2 && currentMap[i][j] <= 5) || currentMap[i][j] == 7) {
-                    printf("D "); // 새로 만든 왼쪽 탈출 문도 화면에는 'D'로 출력되게 설정
+                    printf("D ");
                 }
                 else if (currentMap[i][j] == 1) {
                     if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) printf("# ");
@@ -162,7 +161,7 @@ int main() {
             break;
         }
 
-        // 3. 스페이스바 입력 처리 (숨기기 OR 아이템 줍기)
+        // 3. 스페이스바 입력 처리 (평상시 맵 전용)
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
                 if (currentRoom == itemRoom && !isItemPicked) {
@@ -201,20 +200,29 @@ int main() {
                     if (currentMap[nextY][nextX] != 1) {
                         tileValue = currentMap[nextY][nextX];
 
-                        // [기믹 수정] 비밀의 서재(Room 2)의 '새로운 왼쪽 탈출 전용 문(7)' 상호작용
+                        // 서재 왼쪽 탈출문 상호작용
                         if (currentRoom == 2 && tileValue == 7) {
                             system("cls");
                             if (!hasKey) {
                                 gotoxy(5, MAP_HEIGHT / 2);
                                 printf("[!] 탈출구가 굳게 잠겨 있습니다. '열쇠가 없습니다.'");
                                 gotoxy(5, (MAP_HEIGHT / 2) + 2);
-                                printf("돌아가려면 아무 키나 누르십시오...");
-                                while (!(GetAsyncKeyState(VK_SPACE) & 0x8000) && !(GetAsyncKeyState(VK_RETURN) & 0x8000)) { Sleep(30); }
+                                printf("돌아가려면 스페이스바를 누르십시오...");
+
+                                // 이전에 누르고 있던 스페이스바 떼기 대기
+                                while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
+                                // 새로 스페이스바 누를 때까지 대기
+                                while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
                                 system("cls");
                             }
                             else {
                                 int selection = 0;
                                 bool menuActive = true;
+
+                                // 이전에 문 앞으로 오면서 누른 스페이스바 떼기 대기 (연속 입력 방지)
+                                while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
+
+                                bool menuSpacePressed = false;
 
                                 while (menuActive) {
                                     gotoxy(5, MAP_HEIGHT / 2);
@@ -226,11 +234,19 @@ int main() {
 
                                     if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
                                     if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
-                                    if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
-                                        if (selection == 0) {
-                                            gameClear = true;
+
+                                    // [기믹 반영]: 엔터 대신 스페이스바로 고르기!
+                                    if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+                                        if (!menuSpacePressed) {
+                                            if (selection == 0) {
+                                                gameClear = true;
+                                            }
+                                            menuActive = false;
+                                            menuSpacePressed = true;
                                         }
-                                        menuActive = false;
+                                    }
+                                    else {
+                                        menuSpacePressed = false;
                                     }
                                     Sleep(100);
                                 }
@@ -238,29 +254,29 @@ int main() {
                                 if (gameClear) break;
                             }
                             playerMoveTurn = 0;
+                            spacePressed = true; // 메인 루프로 복귀할 때 중복 입력 방지
                             continue;
                         }
 
-                        // 일반적인 문 이동 처리 (오른쪽 문 포함)
+                        // 일반 문 이동 처리
                         if (tileValue >= 2 && tileValue <= 5) {
                             prevRoom = currentRoom;
                             targetRoom = tileValue - 2;
 
-                            if (bossActive) {
+                            if (bossWaitingAfterHide) {
+                                bossReappearTimer = 25;
+                                bossFollowTimer = 0;
+                                bossActive = false;
+                                bossWaitingAfterHide = false;
+                            }
+                            else {
                                 bossFollowTimer = 25;
                                 bossActive = false;
                             }
-                            else {
-                                if (bossWaitingAfterHide) {
-                                    bossReappearTimer = 25;
-                                    bossWaitingAfterHide = false;
-                                }
-                            }
 
-                            // 방 전환 시 플레이어 초기 위치 설정
                             if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
                             else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 3; }
-                            else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; } // 서재 들어올 땐 우측으로 진입
+                            else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; }
                             else if (currentRoom == 2 && targetRoom == 1) { px = 3; py = 10; }
                             else if (currentRoom == 0 && targetRoom == 3) { px = 3; py = 10; }
                             else if (currentRoom == 3 && targetRoom == 0) { px = MAP_WIDTH - 3; py = 10; }
@@ -285,7 +301,7 @@ int main() {
             break;
         }
 
-        // 5. 문 리스폰 및 복귀 제어 타이머 로직
+        // 5-1. 문 역추격 리스폰 로직
         if (!bossActive && bossFollowTimer > 0) {
             bossFollowTimer--;
             if (bossFollowTimer == 0) {
@@ -300,6 +316,7 @@ int main() {
             }
         }
 
+        // 5-2. 옷장 은신 성공 후 기습 등장 타이머
         if (!bossActive && bossReappearTimer > 0) {
             bossReappearTimer--;
             if (bossReappearTimer == 0) {
