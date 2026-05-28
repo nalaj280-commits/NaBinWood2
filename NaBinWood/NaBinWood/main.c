@@ -251,13 +251,14 @@ void draw_menu()
 // 타이틀 화면
 int RenderTitle()
 {
-    system("cls");
+    //system("cls");
 
     draw_art();
 
     draw_menu();
 
     char a = _getch();
+
 
     switch (a)
     {
@@ -296,6 +297,7 @@ int RenderTitle()
 
         break;
     }
+
 
     return 0;
 }
@@ -453,6 +455,7 @@ int main()
         }
     }
 
+    
     system("cls");
 
     return 0;
