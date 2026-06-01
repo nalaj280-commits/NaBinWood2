@@ -1,4 +1,5 @@
-﻿#include <stdio.h>
+﻿#define _CRT_SECURE_NO_WARNINGS // 인코딩 안 틀어지게 안전장치 추가
+#include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <stdbool.h>
@@ -340,7 +341,7 @@ int main() {
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         bool menuSpacePressed = false;
                         while (menuActive) {
-                            gotoxy(5, MAP_HEIGHT / 2); printf("★ 열쇠를 사용해 W6 밖으로 탈출하시겠습니까? ★");
+                            gotoxy(5, MAP_HEIGHT / 2); printf("★ 열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까? ★");
                             gotoxy(7, (MAP_HEIGHT / 2) + 3);
                             if (selection == 0) printf("▶ 예      아니오"); else printf("   예   ▶ 아니오");
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
@@ -402,10 +403,10 @@ int main() {
 
                     if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
                         bossActive = false;
-                        bossFollowTimer = -1;
+                        bossFollowTimer = -1;   
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
-                        strcpy_s(messageLog, sizeof(messageLog), "이은석 교수님께서 문 밖으로 완전히 나가셨습니다. 안전합니다.");
+                        strcpy_s(messageLog, sizeof(messageLog), "아오오니가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
                     }
                     if (mx != -10 && my != -10) {
                         int monsterNextTile = currentMap[targetY][targetX];
@@ -423,10 +424,10 @@ int main() {
     system("cls");
     setColor(COLOR_WHITE);
     if (gameClear) {
-        printf("\n\n\n\n\t?? [ STAGE CLEAR ] ??\n\t단서를 찾아 비밀번호를 풀고 대탈출에 완벽히 성공했다!\n\n\n");
+        printf("\n\n\n\n\t🎉 [ STAGE CLEAR ] 🎉\n\t단서를 찾아 비밀번호를 풀고 대탈출에 완벽히 성공하셨습니다, 형님!\n\n\n");
     }
     else {
-        printf("\n\n\n\n\t[ GAME OVER ]\n\t이은석 교수님에게 잡혔습니다...\n\n\n");
+        printf("\n\n\n\n\t[ GAME OVER ]\n\t아오오니에게 잡혔습니다...\n\n\n");
     }
     return 0;
 }
