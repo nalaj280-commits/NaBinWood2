@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
 #include <stdbool.h>
@@ -9,7 +9,7 @@
 #define MAP_HEIGHT 20
 #define NUM_ROOMS 11  
 
-// Å¸ÀÏ °ª Á¤ÀÇ
+// íƒ€ì¼ ê°’ ì •ì˜
 #define TILE_EMPTY 0
 #define TILE_WALL 1
 #define TILE_DESK 2     
@@ -17,7 +17,7 @@
 #define TILE_STAIRS 8  
 #define TILE_CLOSET 15  
 
-// ÄÜ¼Ö »ö»ó ÄÚµå Á¤ÀÇ
+// ì½˜ì†” ìƒ‰ìƒ ì½”ë“œ ì •ì˜
 #define COLOR_BLUE      9
 #define COLOR_GREEN     10
 #define COLOR_RED       12
@@ -38,7 +38,7 @@ void setColor(int color) {
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
-// ¹® ¹× ÀÌµ¿ Á¤º¸¸¦ ´ã´Â ±¸Á¶Ã¼
+// ë¬¸ ë° ì´ë™ ì •ë³´ë¥¼ ë‹´ëŠ” êµ¬ì¡°ì²´
 typedef struct {
     int targetRoom;
     int nextPlayerX;
@@ -51,27 +51,30 @@ DoorInfo doors[4];
 int room_limit_width[NUM_ROOMS] = { 40, 20, 24, 20, 20,   40, 20, 16, 20, 24, 20 };
 int room_limit_height[NUM_ROOMS] = { 20, 12, 14, 10, 10,   20, 12,  8, 10, 14, 12 };
 
-// ¾ÆÀÌÅÛ ¹× ¾ÏÈ£ ½Ã½ºÅÛ °ü·Ã º¯¼ö
+// ì•„ì´í…œ ë° ì•”í˜¸ ì‹œìŠ¤í…œ ê´€ë ¨ ë³€ìˆ˜
 int itemRoom = 2;
 int itemX = 18; int itemY = 5;
 bool hasKey = false;
 bool isItemPicked = false;
 
-// ´ë»ç Ãâ·ÂÀ» À§ÇÑ Àü¿ª ·Î±× ¹®ÀÚ¿­
-char messageLog[100] = "ÁÖº¯À» ¼ö»öÇÏ¿© Å»ÃâÇÒ ´Ü¼­¸¦ Ã£À¸½Ê½Ã¿À, Çü´Ô.";
+// ëŒ€ì‚¬ ì¶œë ¥ì„ ìœ„í•œ ì „ì—­ ë¡œê·¸ ë¬¸ìì—´
+char messageLog[100] = "ì£¼ë³€ì„ ìˆ˜ìƒ‰í•˜ì—¬ íƒˆì¶œí•  ë‹¨ì„œë¥¼ ì°¾ìœ¼ì‹­ì‹œì˜¤, í˜•ë‹˜.";
 
-// ¸ó½ºÅÍ°¡ µîÀåÇÒ ¹®ÀÇ ÁÂÇ¥
+// ëª¬ìŠ¤í„°ê°€ ë“±ì¥í•  ë¬¸ì˜ ì¢Œí‘œ
 int lastExitX = -10; int lastExitY = -10;
 
-// ÇÑ ¹æ¿¡¼­ º¸½º¸¦ ÀÌ¹Ì µûµ¹·È´ÂÁö Ã¼Å©ÇÏ´Â ÇÃ·¡±× (¹«ÇÑ ¸®½ºÆù ¹æÁö)
+// í•œ ë°©ì—ì„œ ë³´ìŠ¤ë¥¼ ì´ë¯¸ ë”°ëŒë ¸ëŠ”ì§€ ì²´í¬í•˜ëŠ” í”Œë˜ê·¸ (ë¬´í•œ ë¦¬ìŠ¤í° ë°©ì§€)
 bool bossDefeatedInRoom = false;
 
-// ´ë»çÃ¢ Ãâ·Â ÇÔ¼ö
+// [ì‹ ì„¤] ë¹„ë°€ë²ˆí˜¸ ë¬¸ì´ í•œ ë²ˆ ì—´ë ¸ëŠ”ì§€ ê¸°ì–µí•˜ëŠ” í”Œë˜ê·¸ (í”„ë¦¬íŒ¨ìŠ¤ ê¸°ëŠ¥)
+bool isDoorUnlocked = false;
+
+// ëŒ€ì‚¬ì°½ ì¶œë ¥ í•¨ìˆ˜
 void printMessageLog() {
     gotoxy(0, MAP_HEIGHT + 4);
     setColor(COLOR_YELLOW);
     printf("=================================================================================\n");
-    printf("[¾Ë¸²] %-70s\n", messageLog);
+    printf("[ì•Œë¦¼] %-70s\n", messageLog);
     printf("=================================================================================\n");
     setColor(COLOR_WHITE);
 }
@@ -95,7 +98,7 @@ void initWorldMaps() {
         }
     }
 
-    // 1Ãş ¹èÁ¤
+    // 1ì¸µ ë°°ì •
     world_maps[0][0][5] = 3;   world_maps[0][0][20] = 4;
     world_maps[0][MAP_HEIGHT - 1][10] = 5;   world_maps[0][MAP_HEIGHT - 1][30] = 6;
 
@@ -111,7 +114,7 @@ void initWorldMaps() {
     for (i = 4; i <= 8; i++) world_maps[4][i][8] = TILE_WALL;
     world_maps[4][5][19] = TILE_EXIT; world_maps[4][0][10] = 6;
 
-    // 2Ãş ¹èÁ¤
+    // 2ì¸µ ë°°ì •
     world_maps[5][0][5] = 3; world_maps[5][0][25] = 5;
     world_maps[5][MAP_HEIGHT - 1][5] = 4; world_maps[5][MAP_HEIGHT - 1][30] = 6;
 
@@ -134,7 +137,7 @@ int main() {
 
     bool bossActive = false; int bossFollowTimer = 60;
     bool isHidden = false; bool spacePressed = false;
-    bool gameOver = false; bool gameClear = false; // [¼öÁ¤ ¿Ï·á] ¾Õ¿¡ ÀÚ·áÇü boolÀ» Á¤È®ÇÏ°Ô Ãß°¡Çß½À´Ï´Ù.
+    bool gameOver = false; bool gameClear = false;
 
     int playerMoveTurn = 0; int monsterMoveTurn = 0; int monsterSubTurn = 0;
     int i, j, nextX, nextY;
@@ -142,10 +145,10 @@ int main() {
     char* roomNames[NUM_ROOMS];
     CONSOLE_CURSOR_INFO cursorInfo;
 
-    roomNames[0] = "1Ãş Áß¾Ó º¹µµ"; roomNames[1] = "1Ãş °è´Ü½Ç"; roomNames[2] = "1Ãş °­ÀÇ½Ç";
-    roomNames[3] = "ÇĞ»ı °ú¹æ"; roomNames[4] = "1Ãş ±³¼ö½Ç (Å»Ãâ±¸)"; roomNames[5] = "2Ãş ¾Æ·¡Ãş º¹µµ";
-    roomNames[6] = "ÀÌÀº¼® ±³¼ö½Ç"; roomNames[7] = "¡Ú ºñ¹Ğ°ø°£ ¡Ú"; roomNames[8] = "2Ãş Ã¢°í";
-    roomNames[9] = "2Ãş °­ÀÇ½Ç"; roomNames[10] = "2Ãş °è´Ü½Ç";
+    roomNames[0] = "1ì¸µ ì¤‘ì•™ ë³µë„"; roomNames[1] = "1ì¸µ ê³„ë‹¨ì‹¤"; roomNames[2] = "1ì¸µ ê°•ì˜ì‹¤";
+    roomNames[3] = "í•™ìƒ ê³¼ë°©"; roomNames[4] = "1ì¸µ êµìˆ˜ì‹¤ (íƒˆì¶œêµ¬)"; roomNames[5] = "2ì¸µ ì•„ë˜ì¸µ ë³µë„";
+    roomNames[6] = "ì´ì€ì„ êµìˆ˜ì‹¤"; roomNames[7] = "â˜… ë¹„ë°€ê³µê°„ â˜…"; roomNames[8] = "2ì¸µ ì°½ê³ ";
+    roomNames[9] = "2ì¸µ ê°•ì˜ì‹¤"; roomNames[10] = "2ì¸µ ê³„ë‹¨ì‹¤";
 
     initWorldMaps(); initDoors();
 
@@ -156,12 +159,12 @@ int main() {
     while (!gameOver && !gameClear) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-        // 1. È­¸é ·»´õ¸µ
+        // 1. í™”ë©´ ë Œë”ë§
         gotoxy(0, 0);
         setColor(COLOR_WHITE);
         printf("+-------------------------------------------------------------------------------+\n");
-        printf("| ¹æ Á¤º¸: %-26s | »óÅÂ: %-31s |\n", roomNames[currentRoom], isHidden ? "¿ÊÀå¿¡ ¼ûÀ½ (SAFE)" : "Ãß°İ´çÇÏ´Â Áß...");
-        printf("| ¼ÒÁöÇ°: %-68s |\n", hasKey ? "[±³¼ö½Ç ¿­¼è]" : "¾øÀ½");
+        printf("| ë°© ì •ë³´: %-26s | ìƒíƒœ: %-31s |\n", roomNames[currentRoom], isHidden ? "ì˜·ì¥ì— ìˆ¨ìŒ (SAFE)" : "ì¶”ê²©ë‹¹í•˜ëŠ” ì¤‘...");
+        printf("| ì†Œì§€í’ˆ: %-68s |\n", hasKey ? "[êµìˆ˜ì‹¤ ì—´ì‡ ]" : "ì—†ìŒ");
         printf("+-------------------------------------------------------------------------------+\n");
 
         for (i = 0; i < MAP_HEIGHT; i++) {
@@ -188,45 +191,45 @@ int main() {
 
         if (bossActive && !isHidden && px == mx && py == my) { gameOver = true; break; }
 
-        // 2. ½ºÆäÀÌ½º¹Ù »óÈ£ÀÛ¿ë
+        // 2. ìŠ¤í˜ì´ìŠ¤ë°” ìƒí˜¸ì‘ìš©
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
                 if (currentRoom == 8 && abs(px - 10) <= 1 && abs(py - 4) <= 1) {
-                    strcpy_s(messageLog, sizeof(messageLog), "Ã¥»ó ¼­¶ø¿¡¼­ ³ëÆ®¸¦ ¹ß°ßÇß´Ù: 'ºñ¹Ğ¹øÈ£´Â [1111]ÀÌ´Ù.' (³Ñ¾î°¡·Á¸é Space)");
+                    strcpy_s(messageLog, sizeof(messageLog), "ì±…ìƒ ì„œëì—ì„œ ë…¸íŠ¸ë¥¼ ë°œê²¬í–ˆë‹¤: 'ë¹„ë°€ë²ˆí˜¸ëŠ” [1111]ì´ë‹¤.' (ë„˜ì–´ê°€ë ¤ë©´ Space)");
                     printMessageLog();
                     while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                     while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
-                    strcpy_s(messageLog, sizeof(messageLog), "ºñ¹Ğ¹øÈ£ ´Ü¼­¸¦ È®ÀÎÇß½À´Ï´Ù.");
+                    strcpy_s(messageLog, sizeof(messageLog), "ë¹„ë°€ë²ˆí˜¸ ë‹¨ì„œë¥¼ í™•ì¸í–ˆìŠµë‹ˆë‹¤.");
                     spacePressed = true; system("cls"); continue;
                 }
 
                 if (currentRoom == itemRoom && !isItemPicked && abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
                     hasKey = true; isItemPicked = true;
-                    strcpy_s(messageLog, sizeof(messageLog), "°­ÀÇ½Ç ¹Ù´Ú¿¡¼­ [±³¼ö½Ç ¸¶½ºÅÍ ¿­¼è]¸¦ È¹µæÇß½À´Ï´Ù!");
+                    strcpy_s(messageLog, sizeof(messageLog), "ê°•ì˜ì‹¤ ë°”ë‹¥ì—ì„œ [êµìˆ˜ì‹¤ ë§ˆìŠ¤í„° ì—´ì‡ ]ë¥¼ íšë“í–ˆìŠµë‹ˆë‹¤!");
                     spacePressed = true; continue;
                 }
 
                 if (currentMap[py][px] == TILE_CLOSET) {
                     isHidden = !isHidden;
                     if (isHidden) {
-                        strcpy_s(messageLog, sizeof(messageLog), "¿ÊÀå ¼Ó¿¡ ¼û¾ú½À´Ï´Ù. ¼û¼Ò¸®¸¦ Á×ÀÌ½Ê½Ã¿À...");
+                        strcpy_s(messageLog, sizeof(messageLog), "ì˜·ì¥ ì†ì— ìˆ¨ì—ˆìŠµë‹ˆë‹¤. ìˆ¨ì†Œë¦¬ë¥¼ ì£½ì´ì‹­ì‹œì˜¤...");
                     }
                     else {
-                        strcpy_s(messageLog, sizeof(messageLog), "¿ÊÀå¿¡¼­ ³ª¿Ô½À´Ï´Ù.");
+                        strcpy_s(messageLog, sizeof(messageLog), "ì˜·ì¥ì—ì„œ ë‚˜ì™”ìŠµë‹ˆë‹¤.");
                     }
                 }
 
-                // ¹æ ÀÌµ¿(°è´Ü) ½Ã ¼Ò¸ê ÇÃ·¡±× ¸®¼Â
+                // ë°© ì´ë™(ê³„ë‹¨) ì‹œ ì†Œë©¸ í”Œë˜ê·¸ ë¦¬ì…‹
                 if (currentRoom == 1 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 10; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
                     bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
-                    strcpy_s(messageLog, sizeof(messageLog), "2Ãş °è´Ü½Ç·Î ³»·Á¿Ô½À´Ï´Ù.");
+                    strcpy_s(messageLog, sizeof(messageLog), "2ì¸µ ê³„ë‹¨ì‹¤ë¡œ ë‚´ë ¤ì™”ìŠµë‹ˆë‹¤.");
                     system("cls"); spacePressed = true; continue;
                 }
                 if (currentRoom == 10 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 1; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
                     bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
-                    strcpy_s(messageLog, sizeof(messageLog), "1Ãş °è´Ü½Ç·Î ¿Ã¶ó¿Ô½À´Ï´Ù.");
+                    strcpy_s(messageLog, sizeof(messageLog), "1ì¸µ ê³„ë‹¨ì‹¤ë¡œ ì˜¬ë¼ì™”ìŠµë‹ˆë‹¤.");
                     system("cls"); spacePressed = true; continue;
                 }
 
@@ -246,21 +249,31 @@ int main() {
                     }
                 }
 
+                // [ìˆ˜ì • ê¸°ë¯¹] ì´ì€ì„ êµìˆ˜ì‹¤ ë¹„ë°€ë²ˆí˜¸ ë¬¸ ìƒí˜¸ì‘ìš©
                 if (currentRoom == 6 && targetDoorTile == 10) {
+                    // ì´ë¯¸ ë¹„ë°€ë²ˆí˜¸ë¥¼ í•œ ë²ˆ ì„±ê³µí–ˆë‹¤ë©´ ì…ë ¥ ì—†ì´ ë‹¤ì´ë ‰íŠ¸ í†µê³¼!
+                    if (isDoorUnlocked) {
+                        px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
+                        strcpy_s(messageLog, sizeof(messageLog), "ì´ë¯¸ ì ê¸ˆ í•´ì œëœ ë¹„ë°€ í†µë¡œë¥¼ í†µê³¼í•©ë‹ˆë‹¤.");
+                        system("cls"); spacePressed = true; continue;
+                    }
+
                     cursorInfo.bVisible = TRUE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
 
                     gotoxy(0, MAP_HEIGHT + 7);
-                    printf("¢º ºñ¹Ğ¹øÈ£ 4ÀÚ¸®¸¦ ÀÔ·ÂÇÏ¼¼¿ä: ");
+                    printf("â–¶ ë¹„ë°€ë²ˆí˜¸ 4ìë¦¬ë¥¼ ì…ë ¥í•˜ì„¸ìš”: ");
                     int inputPassword = 0;
 
                     if (scanf_s("%d", &inputPassword) == 1) {
                         if (inputPassword == 1111) {
                             px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
                             bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
-                            strcpy_s(messageLog, sizeof(messageLog), "Ã¶ÄÀ! ºñ¹Ğ¹øÈ£°¡ ÀÏÄ¡ÇÏ¿© ºñ¹Ğ ÀåÄ¡ ¹®ÀÌ ¿­·È½À´Ï´Ù. (¿©±â´Â ¾ÈÀüÇÕ´Ï´Ù.)");
+                            isDoorUnlocked = true; // [í•´ì œ] ë‹¤ìŒë¶€í„°ëŠ” ì…ë ¥ ì•ˆ ë°›ê²Œ ê³ ì •!
+                            strcpy_s(messageLog, sizeof(messageLog), "ì² ì»¥! ë¹„ë°€ë²ˆí˜¸ê°€ ì¼ì¹˜í•˜ì—¬ ë¹„ë°€ ì¥ì¹˜ ë¬¸ì´ ì—´ë ¸ìŠµë‹ˆë‹¤. (ì´ì œ ê·¸ëƒ¥ ë‹¤ë‹ ìˆ˜ ìˆìŠµë‹ˆë‹¤.)");
                         }
                         else {
-                            strcpy_s(messageLog, sizeof(messageLog), "»ßºò! °æ°í: ºñ¹Ğ¹øÈ£°¡ Æ²·È½À´Ï´Ù! (¾Æ¿À¿À´Ï°¡ ¹®¿¡¼­ Ãß°İÀ» ½ÃÀÛÇÕ´Ï´Ù!)");
+                            strcpy_s(messageLog, sizeof(messageLog), "ì‚ë¹…! ê²½ê³ : ë¹„ë°€ë²ˆí˜¸ê°€ í‹€ë ¸ìŠµë‹ˆë‹¤! (ì•„ì˜¤ì˜¤ë‹ˆê°€ ë¬¸ì—ì„œ ì¶”ê²©ì„ ì‹œì‘í•©ë‹ˆë‹¤!)");
                             bossActive = true; bossFollowTimer = 0; mx = currentDoorX; my = currentDoorY; bossDefeatedInRoom = false;
                         }
                     }
@@ -316,8 +329,8 @@ int main() {
                 if (currentRoom == 4 && nearExit) {
                     system("cls");
                     if (!hasKey) {
-                        gotoxy(5, MAP_HEIGHT / 2); printf("[!] ±³¼ö½Ç ºñ¹Ğ Åë·Î°¡ Àá°ÜÀÖ½À´Ï´Ù. ¸¶½ºÅÍ ¿­¼è°¡ ÇÊ¿äÇÕ´Ï´Ù.");
-                        gotoxy(5, (MAP_HEIGHT / 2) + 2); printf("µ¹¾Æ°¡·Á¸é ½ºÆäÀÌ½º¹Ù¸¦ ´©¸£½Ê½Ã¿À...");
+                        gotoxy(5, MAP_HEIGHT / 2); printf("[!] êµìˆ˜ì‹¤ ë¹„ë°€ í†µë¡œê°€ ì ê²¨ìˆìŠµë‹ˆë‹¤. ë§ˆìŠ¤í„° ì—´ì‡ ê°€ í•„ìš”í•©ë‹ˆë‹¤.");
+                        gotoxy(5, (MAP_HEIGHT / 2) + 2); printf("ëŒì•„ê°€ë ¤ë©´ ìŠ¤í˜ì´ìŠ¤ë°”ë¥¼ ëˆ„ë¥´ì‹­ì‹œì˜¤...");
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
                         system("cls");
@@ -327,9 +340,9 @@ int main() {
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         bool menuSpacePressed = false;
                         while (menuActive) {
-                            gotoxy(5, MAP_HEIGHT / 2); printf("¡Ú ¿­¼è¸¦ »ç¿ëÇØ W6 ¹ÛÀ¸·Î Å»ÃâÇÏ½Ã°Ú½À´Ï±î? ¡Ú");
+                            gotoxy(5, MAP_HEIGHT / 2); printf("â˜… ì—´ì‡ ë¥¼ ì‚¬ìš©í•´ W6 ë°–ìœ¼ë¡œ íƒˆì¶œí•˜ì‹œê² ìŠµë‹ˆê¹Œ? â˜…");
                             gotoxy(7, (MAP_HEIGHT / 2) + 3);
-                            if (selection == 0) printf("¢º ¿¹      ¾Æ´Ï¿À"); else printf("   ¿¹   ¢º ¾Æ´Ï¿À");
+                            if (selection == 0) printf("â–¶ ì˜ˆ      ì•„ë‹ˆì˜¤"); else printf("   ì˜ˆ   â–¶ ì•„ë‹ˆì˜¤");
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
                             if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
                             if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
@@ -346,7 +359,7 @@ int main() {
         }
         else { spacePressed = false; }
 
-        // 3. ÇÃ·¹ÀÌ¾î ÀÌµ¿
+        // 3. í”Œë ˆì´ì–´ ì´ë™
         if (!isHidden) {
             playerMoveTurn++;
             if (playerMoveTurn >= 2) {
@@ -368,7 +381,7 @@ int main() {
 
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { gameOver = true; break; }
 
-        // 4. Ãß°İÀÚ ½ºÆù Å¸ÀÌ¸Ó Á¶Á¤
+        // 4. ì¶”ê²©ì ìŠ¤í° íƒ€ì´ë¨¸ ì¡°ì •
         if (currentRoom != 0 && currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
             bossFollowTimer--;
             if (bossFollowTimer == 0) {
@@ -377,7 +390,7 @@ int main() {
             }
         }
 
-        // 5. ¾Æ¿À¿À´Ï AI Ãß°İ
+        // 5. ì•„ì˜¤ì˜¤ë‹ˆ AI ì¶”ê²©
         if (currentRoom != 7 && bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
             if (monsterMoveTurn >= 4) {
@@ -392,7 +405,7 @@ int main() {
                         bossFollowTimer = -1;
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
-                        strcpy_s(messageLog, sizeof(messageLog), "ÀÌÀº¼® ±³¼ö´Ô²²¼­ ¹® ¹ÛÀ¸·Î ¿ÏÀüÈ÷ ³ª°¡¼Ì½À´Ï´Ù. ¾ÈÀüÇÕ´Ï´Ù.");
+                        strcpy_s(messageLog, sizeof(messageLog), "ì´ì€ì„ êµìˆ˜ë‹˜ê»˜ì„œ ë¬¸ ë°–ìœ¼ë¡œ ì™„ì „íˆ ë‚˜ê°€ì…¨ìŠµë‹ˆë‹¤. ì•ˆì „í•©ë‹ˆë‹¤.");
                     }
                     if (mx != -10 && my != -10) {
                         int monsterNextTile = currentMap[targetY][targetX];
@@ -410,10 +423,10 @@ int main() {
     system("cls");
     setColor(COLOR_WHITE);
     if (gameClear) {
-        printf("\n\n\n\n\t?? [ STAGE CLEAR ] ??\n\t´Ü¼­¸¦ Ã£¾Æ ºñ¹Ğ¹øÈ£¸¦ Ç®°í ´ëÅ»Ãâ¿¡ ¿Ïº®È÷ ¼º°øÇß´Ù!\n\n\n");
+        printf("\n\n\n\n\t?? [ STAGE CLEAR ] ??\n\të‹¨ì„œë¥¼ ì°¾ì•„ ë¹„ë°€ë²ˆí˜¸ë¥¼ í’€ê³  ëŒ€íƒˆì¶œì— ì™„ë²½íˆ ì„±ê³µí–ˆë‹¤!\n\n\n");
     }
     else {
-        printf("\n\n\n\n\t[ GAME OVER ]\n\tÀÌÀº¼® ±³¼ö´Ô¿¡°Ô ÀâÇû½À´Ï´Ù...\n\n\n");
+        printf("\n\n\n\n\t[ GAME OVER ]\n\tì´ì€ì„ êµìˆ˜ë‹˜ì—ê²Œ ì¡í˜”ìŠµë‹ˆë‹¤...\n\n\n");
     }
     return 0;
 }
