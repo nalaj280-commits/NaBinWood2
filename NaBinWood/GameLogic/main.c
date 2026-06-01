@@ -15,7 +15,7 @@
 #define TILE_DESK 2     
 #define TILE_EXIT 7
 #define TILE_STAIRS 8  
-#define TILE_CLOSET 15  // [수정] 포탈 번호(6)와 겹치지 않도록 고유 번호로 변경
+#define TILE_CLOSET 15  
 
 // 콘솔 색상 코드 정의
 #define COLOR_BLUE      9
@@ -60,8 +60,11 @@ bool isItemPicked = false;
 // 대사 출력을 위한 전역 로그 문자열
 char messageLog[100] = "주변을 수색하여 탈출할 단서를 찾으십시오, 형님.";
 
-// [수정] 몬스터가 등장할 문의 좌표를 정확히 기억할 변수
+// 몬스터가 등장할 문의 좌표
 int lastExitX = -10; int lastExitY = -10;
+
+// 한 방에서 보스를 이미 따돌렸는지 체크하는 플래그 (무한 리스폰 방지)
+bool bossDefeatedInRoom = false;
 
 // 대사창 출력 함수
 void printMessageLog() {
@@ -131,7 +134,7 @@ int main() {
 
     bool bossActive = false; int bossFollowTimer = 60;
     bool isHidden = false; bool spacePressed = false;
-    bool gameOver = false; bool gameClear = false;
+    bool gameOver = false; bool gameClear = false; // [수정 완료] 앞에 자료형 bool을 정확하게 추가했습니다.
 
     int playerMoveTurn = 0; int monsterMoveTurn = 0; int monsterSubTurn = 0;
     int i, j, nextX, nextY;
@@ -175,7 +178,7 @@ int main() {
                     if (i == 0 || i == room_limit_height[currentRoom] - 1 || j == 0 || j == room_limit_width[currentRoom] - 1) printf("# ");
                     else printf("X ");
                 }
-                else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("H "); } // [픽스] 이제 정상출력됨
+                else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("H "); }
                 else { printf("  "); }
             }
             printf("\n");
@@ -203,17 +206,27 @@ int main() {
                     spacePressed = true; continue;
                 }
 
-                if (currentMap[py][px] == TILE_CLOSET) { isHidden = !isHidden; }
+                if (currentMap[py][px] == TILE_CLOSET) {
+                    isHidden = !isHidden;
+                    if (isHidden) {
+                        strcpy_s(messageLog, sizeof(messageLog), "옷장 속에 숨었습니다. 숨소리를 죽이십시오...");
+                    }
+                    else {
+                        strcpy_s(messageLog, sizeof(messageLog), "옷장에서 나왔습니다.");
+                    }
+                }
 
-                // 계단 이동 시에도 출구(문) 위치 정밀 기록
+                // 방 이동(계단) 시 소멸 플래그 리셋
                 if (currentRoom == 1 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 10; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
-                    bossActive = false; bossFollowTimer = 20; strcpy_s(messageLog, sizeof(messageLog), "2층 계단실로 내려왔습니다.");
+                    bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
+                    strcpy_s(messageLog, sizeof(messageLog), "2층 계단실로 내려왔습니다.");
                     system("cls"); spacePressed = true; continue;
                 }
                 if (currentRoom == 10 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 1; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
-                    bossActive = false; bossFollowTimer = 20; strcpy_s(messageLog, sizeof(messageLog), "1층 계단실로 올라왔습니다.");
+                    bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
+                    strcpy_s(messageLog, sizeof(messageLog), "1층 계단실로 올라왔습니다.");
                     system("cls"); spacePressed = true; continue;
                 }
 
@@ -221,7 +234,6 @@ int main() {
                 int targetDoorTile = 0;
                 int currentDoorX = px, currentDoorY = py;
 
-                // 상하좌우를 살펴서 '현재 방의 문 타일 좌표' 획득
                 for (int d = 0; d < 4; d++) {
                     int checkX = px + dx[d]; int checkY = py + dy[d];
                     if (checkX >= 0 && checkX < MAP_WIDTH && checkY >= 0 && checkY < MAP_HEIGHT) {
@@ -244,12 +256,12 @@ int main() {
                     if (scanf_s("%d", &inputPassword) == 1) {
                         if (inputPassword == 1111) {
                             px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
-                            bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                            bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
                             strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다. (여기는 안전합니다.)");
                         }
                         else {
                             strcpy_s(messageLog, sizeof(messageLog), "삐빅! 경고: 비밀번호가 틀렸습니다! (아오오니가 문에서 추격을 시작합니다!)");
-                            bossActive = true; bossFollowTimer = 0; mx = currentDoorX; my = currentDoorY;
+                            bossActive = true; bossFollowTimer = 0; mx = currentDoorX; my = currentDoorY; bossDefeatedInRoom = false;
                         }
                     }
 
@@ -259,15 +271,14 @@ int main() {
 
                 if ((targetDoorTile >= 3 && targetDoorTile <= 6) || targetDoorTile == 10) {
                     bossActive = false;
-                    bossFollowTimer = 25; // 다음 방 진입 후 스폰까지의 카운트다운
+                    bossFollowTimer = 25;
+                    bossDefeatedInRoom = false;
 
-                    // [수정] 방을 넘어간 직후, "다음 방 안에 존재하는 문(D)의 위치"를 역산하여 무조건 D에서 나오게 고정
                     if (currentRoom == 0) {
                         int doorIdx = targetDoorTile - 3;
                         px = doors[doorIdx].nextPlayerX; py = doors[doorIdx].nextPlayerY;
                         currentRoom = doors[doorIdx].targetRoom;
 
-                        // 이동한 내부 룸에서 문(D)이 배치된 정밀 좌표 강제 맵핑
                         if (currentRoom == 1) { lastExitX = 10; lastExitY = 11; }
                         if (currentRoom == 2) { lastExitX = 12; lastExitY = 13; }
                         if (currentRoom == 3) { lastExitX = 10; lastExitY = 0; }
@@ -283,7 +294,6 @@ int main() {
                         px = 18; py = 5; currentRoom = 6; lastExitX = 19; lastExitY = 5;
                     }
                     else {
-                        // 방에서 메인 복도(Room 0 또는 5)로 나올 때 문 위치 고정
                         int prevRoom = currentRoom;
                         if (prevRoom == 1) { px = 5;  py = 1; currentRoom = 0; lastExitX = 5; lastExitY = 0; }
                         if (prevRoom == 2) { px = 20; py = 1; currentRoom = 0; lastExitX = 20; lastExitY = 0; }
@@ -359,12 +369,11 @@ int main() {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { gameOver = true; break; }
 
         // 4. 추격자 스폰 타이머 조정
-        // [수정] 처음에 시작하는 0번 방(1층 중앙 복도)이거나 안전지대(7번 방)일 때는 몬스터 카운트가 돌지 않음
-        if (currentRoom != 0 && currentRoom != 7 && !bossActive && bossFollowTimer > 0) {
+        if (currentRoom != 0 && currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
             bossFollowTimer--;
             if (bossFollowTimer == 0) {
                 bossActive = true;
-                mx = lastExitX; my = lastExitY; // 무조건 문(D)의 위치에서 소환
+                mx = lastExitX; my = lastExitY;
             }
         }
 
@@ -379,7 +388,11 @@ int main() {
                     if (my < py) targetY++; else if (my > py) targetY--;
 
                     if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
-                        bossActive = false; bossFollowTimer = 35; mx = -10; my = -10;
+                        bossActive = false;
+                        bossFollowTimer = -1;
+                        mx = -10; my = -10;
+                        bossDefeatedInRoom = true;
+                        strcpy_s(messageLog, sizeof(messageLog), "아오오니가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
                     }
                     if (mx != -10 && my != -10) {
                         int monsterNextTile = currentMap[targetY][targetX];
