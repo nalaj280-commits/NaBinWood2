@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS // 인코딩 안 틀어지게 안전장치 추가
+﻿#define _CRT_SECURE_NO_WARNINGS // 인코딩 및 보안 경고 방지
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
@@ -58,17 +58,20 @@ int itemX = 18; int itemY = 5;
 bool hasKey = false;
 bool isItemPicked = false;
 
-// 대사 출력을 위한 전역 로그 문자열
-char messageLog[100] = "주변을 수색하여 탈출할 단서를 찾으십시오, 형님.";
+// 대사 문자열 버퍼 크기 (튕김 해결 완료)
+char messageLog[200] = "주변을 수색하여 탈출할 단서를 찾으십시오, 형님.";
 
 // 몬스터가 등장할 문의 좌표
 int lastExitX = -10; int lastExitY = -10;
 
-// 한 방에서 보스를 이미 따돌렸는지 체크하는 플래그 (무한 리스폰 방지)
+// 한 방에서 보스를 이미 따돌렸는지 체크하는 플래그
 bool bossDefeatedInRoom = false;
 
-// [신설] 비밀번호 문이 한 번 열렸는지 기억하는 플래그 (프리패스 기능)
+// 비밀번호 문이 한 번 열렸는지 기억하는 플래그
 bool isDoorUnlocked = false;
+
+// 맨 처음 시작한 복도 상태인지 체크하는 플래그
+bool isFirstRoom = true;
 
 // 대사창 출력 함수
 void printMessageLog() {
@@ -148,7 +151,7 @@ int main() {
 
     roomNames[0] = "1층 중앙 복도"; roomNames[1] = "1층 계단실"; roomNames[2] = "1층 강의실";
     roomNames[3] = "학생 과방"; roomNames[4] = "1층 교수실 (탈출구)"; roomNames[5] = "2층 아래층 복도";
-    roomNames[6] = "이은석 교수실"; roomNames[7] = "★ 비밀공간 ★"; roomNames[8] = "2층 창고";
+    roomNames[6] = "이은석 교수실"; roomNames[7] = "[비밀공간]"; roomNames[8] = "2층 창고";
     roomNames[9] = "2층 강의실"; roomNames[10] = "2층 계단실";
 
     initWorldMaps(); initDoors();
@@ -220,7 +223,6 @@ int main() {
                     }
                 }
 
-                // 방 이동(계단) 시 소멸 플래그 리셋
                 if (currentRoom == 1 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 10; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
                     bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
@@ -250,9 +252,8 @@ int main() {
                     }
                 }
 
-                // [수정 기믹] 이은석 교수실 비밀번호 문 상호작용
+                // 이은석 교수실 비밀번호 문 상호작용
                 if (currentRoom == 6 && targetDoorTile == 10) {
-                    // 이미 비밀번호를 한 번 성공했다면 입력 없이 다이렉트 통과!
                     if (isDoorUnlocked) {
                         px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
                         bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
@@ -263,18 +264,18 @@ int main() {
                     cursorInfo.bVisible = TRUE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
 
                     gotoxy(0, MAP_HEIGHT + 7);
-                    printf("▶ 비밀번호 4자리를 입력하세요: ");
+                    printf("-> 비밀번호 4자리를 입력하세요: ");
                     int inputPassword = 0;
 
                     if (scanf_s("%d", &inputPassword) == 1) {
                         if (inputPassword == 1111) {
                             px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
                             bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
-                            isDoorUnlocked = true; // [해제] 다음부터는 입력 안 받게 고정!
+                            isDoorUnlocked = true;
                             strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다. (이제 그냥 다닐 수 있습니다.)");
                         }
                         else {
-                            strcpy_s(messageLog, sizeof(messageLog), "삐빅! 경고: 비밀번호가 틀렸습니다! (아오오니가 문에서 추격을 시작합니다!)");
+                            strcpy_s(messageLog, sizeof(messageLog), "[경고] 비밀번호가 틀렸습니다! (아오오니가 문에서 추격을 시작합니다!)");
                             bossActive = true; bossFollowTimer = 0; mx = currentDoorX; my = currentDoorY; bossDefeatedInRoom = false;
                         }
                     }
@@ -287,6 +288,8 @@ int main() {
                     bossActive = false;
                     bossFollowTimer = 25;
                     bossDefeatedInRoom = false;
+
+                    isFirstRoom = false;
 
                     if (currentRoom == 0) {
                         int doorIdx = targetDoorTile - 3;
@@ -341,9 +344,9 @@ int main() {
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         bool menuSpacePressed = false;
                         while (menuActive) {
-                            gotoxy(5, MAP_HEIGHT / 2); printf("★ 열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까? ★");
+                            gotoxy(5, MAP_HEIGHT / 2); printf("[ 열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까? ]");
                             gotoxy(7, (MAP_HEIGHT / 2) + 3);
-                            if (selection == 0) printf("▶ 예      아니오"); else printf("   예   ▶ 아니오");
+                            if (selection == 0) printf("-> 예      아니오"); else printf("   예   -> 아니오");
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
                             if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
                             if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
@@ -383,11 +386,13 @@ int main() {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { gameOver = true; break; }
 
         // 4. 추격자 스폰 타이머 조정
-        if (currentRoom != 0 && currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
-            bossFollowTimer--;
-            if (bossFollowTimer == 0) {
-                bossActive = true;
-                mx = lastExitX; my = lastExitY;
+        if (currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
+            if (!(currentRoom == 0 && isFirstRoom)) {
+                bossFollowTimer--;
+                if (bossFollowTimer == 0) {
+                    bossActive = true;
+                    mx = lastExitX; my = lastExitY;
+                }
             }
         }
 
@@ -424,7 +429,7 @@ int main() {
     system("cls");
     setColor(COLOR_WHITE);
     if (gameClear) {
-        printf("\n\n\n\n\t🎉 [ STAGE CLEAR ] 🎉\n\t단서를 찾아 비밀번호를 풀고 대탈출에 완벽히 성공하셨습니다, 형님!\n\n\n");
+        printf("\n\n\n\n\t[ STAGE CLEAR ]\n\t단서를 찾아 비밀번호를 풀고 대탈출에 완벽히 성공하셨습니다, 형님!\n\n\n");
     }
     else {
         printf("\n\n\n\n\t[ GAME OVER ]\n\t아오오니에게 잡혔습니다...\n\n\n");
