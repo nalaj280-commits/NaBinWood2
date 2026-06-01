@@ -1,3 +1,4 @@
+﻿#define _CRT_SECURE_NO_WARNINGS // 인코딩 안 틀어지게 안전장치 추가
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
@@ -65,6 +66,9 @@ int lastExitX = -10; int lastExitY = -10;
 
 // 한 방에서 보스를 이미 따돌렸는지 체크하는 플래그 (무한 리스폰 방지)
 bool bossDefeatedInRoom = false;
+
+// [신설] 비밀번호 문이 한 번 열렸는지 기억하는 플래그 (프리패스 기능)
+bool isDoorUnlocked = false;
 
 // 대사창 출력 함수
 void printMessageLog() {
@@ -134,7 +138,7 @@ int main() {
 
     bool bossActive = false; int bossFollowTimer = 60;
     bool isHidden = false; bool spacePressed = false;
-    bool gameOver = false; bool gameClear = false; // [수정 완료] 앞에 자료형 bool을 정확하게 추가했습니다.
+    bool gameOver = false; bool gameClear = false;
 
     int playerMoveTurn = 0; int monsterMoveTurn = 0; int monsterSubTurn = 0;
     int i, j, nextX, nextY;
@@ -246,7 +250,16 @@ int main() {
                     }
                 }
 
+                // [수정 기믹] 이은석 교수실 비밀번호 문 상호작용
                 if (currentRoom == 6 && targetDoorTile == 10) {
+                    // 이미 비밀번호를 한 번 성공했다면 입력 없이 다이렉트 통과!
+                    if (isDoorUnlocked) {
+                        px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
+                        strcpy_s(messageLog, sizeof(messageLog), "이미 잠금 해제된 비밀 통로를 통과합니다.");
+                        system("cls"); spacePressed = true; continue;
+                    }
+
                     cursorInfo.bVisible = TRUE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
 
                     gotoxy(0, MAP_HEIGHT + 7);
@@ -257,7 +270,8 @@ int main() {
                         if (inputPassword == 1111) {
                             px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
                             bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
-                            strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다. (여기는 안전합니다.)");
+                            isDoorUnlocked = true; // [해제] 다음부터는 입력 안 받게 고정!
+                            strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다. (이제 그냥 다닐 수 있습니다.)");
                         }
                         else {
                             strcpy_s(messageLog, sizeof(messageLog), "삐빅! 경고: 비밀번호가 틀렸습니다! (아오오니가 문에서 추격을 시작합니다!)");
