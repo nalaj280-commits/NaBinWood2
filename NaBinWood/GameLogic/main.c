@@ -3,10 +3,11 @@
 #include <windows.h>
 #include <stdbool.h>
 #include <math.h>
+#include <string.h> 
 
 #define MAP_WIDTH 40
 #define MAP_HEIGHT 20
-#define NUM_ROOMS 4
+#define NUM_ROOMS 11  
 
 // ≈∏¿œ ∞™ ¡§¿«
 #define TILE_EMPTY 0
@@ -16,6 +17,16 @@
 #define TILE_STAIRS 8  
 #define TILE_CLOSET 15  
 
+// ƒ‹º÷ ªˆªÛ ƒ⁄µÂ ¡§¿«
+#define COLOR_BLUE      9
+#define COLOR_GREEN     10
+#define COLOR_RED       12
+#define COLOR_BROWN     6
+#define COLOR_DARKGRAY  8
+#define COLOR_WHITE     15
+#define COLOR_PURPLE    13 
+#define COLOR_YELLOW    14
+
 void gotoxy(int x, int y) {
     COORD pos;
     pos.X = x;
@@ -23,12 +34,26 @@ void gotoxy(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
 
-int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
+void setColor(int color) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
 
-// ?ÑÏù¥??Í¥Ä???ÑÏó≠ Î≥Ä??
-int itemRoom = 3;
-int itemX = 35;
-int itemY = 2;
+// πÆ π◊ ¿Ãµø ¡§∫∏∏¶ ¥„¥¬ ±∏¡∂√º
+typedef struct {
+    int targetRoom;
+    int nextPlayerX;
+    int nextPlayerY;
+} DoorInfo;
+
+int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
+DoorInfo doors[4];
+
+int room_limit_width[NUM_ROOMS] = { 40, 20, 24, 20, 20,   40, 20, 16, 20, 24, 20 };
+int room_limit_height[NUM_ROOMS] = { 20, 12, 14, 10, 10,   20, 12,  8, 10, 14, 12 };
+
+// æ∆¿Ã≈€ π◊ æœ»£ Ω√Ω∫≈€ ∞¸∑√ ∫Øºˆ
+int itemRoom = 2;
+int itemX = 18; int itemY = 5;
 bool hasKey = false;
 bool isItemPicked = false;
 
@@ -60,120 +85,97 @@ void initDoors() {
 
 void initWorldMaps() {
     int r, i, j;
-
     for (r = 0; r < NUM_ROOMS; r++) {
         for (i = 0; i < MAP_HEIGHT; i++) {
             for (j = 0; j < MAP_WIDTH; j++) {
-                if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) {
-                    world_maps[r][i][j] = 1;
-                }
-                else {
-                    world_maps[r][i][j] = 0;
-                }
+                if (i == 0 || i == room_limit_height[r] - 1 || j == 0 || j == room_limit_width[r] - 1) world_maps[r][i][j] = TILE_WALL;
+                else if (j >= room_limit_width[r] || i >= room_limit_height[r]) world_maps[r][i][j] = TILE_WALL;
+                else world_maps[r][i][j] = TILE_EMPTY;
             }
         }
     }
 
-    // --- [Room 0: ?Ä?Ä???ÑÍ? Î°úÎπÑ] ---
-    for (j = 15; j <= 24; j++) { world_maps[0][9][j] = 1; world_maps[0][10][j] = 1; }
-    world_maps[0][3][5] = 1; world_maps[0][3][34] = 1;
-    world_maps[0][1][20] = 3;
-    world_maps[0][10][MAP_WIDTH - 2] = 5;
-    world_maps[0][2][2] = 6; world_maps[0][2][3] = 6;
+    // 1√˛ πË¡§
+    world_maps[0][0][5] = 3;   world_maps[0][0][20] = 4;
+    world_maps[0][MAP_HEIGHT - 1][10] = 5;   world_maps[0][MAP_HEIGHT - 1][30] = 6;
 
-    // --- [Room 1: Cozy Bedroom (Ïπ®Ïã§)] ---
-    for (i = 3; i <= 6; i++) { for (j = 4; j <= 8; j++) world_maps[1][i][j] = 1; }
-    for (j = 25; j <= 35; j++) world_maps[1][15][j] = 1;
-    world_maps[1][MAP_HEIGHT - 2][20] = 2;
-    world_maps[1][10][1] = 4;
-    world_maps[1][2][36] = 6; world_maps[1][2][37] = 6;
+    for (i = 3; i <= 8; i++) { for (j = 5; j <= 15; j++) world_maps[1][i][j] = TILE_WALL; }
+    world_maps[1][11][10] = 3; world_maps[1][1][2] = TILE_STAIRS;
 
-    // --- [Room 2: ÎπÑÎ????úÏû¨] ---
-    for (i = 3; i <= 14; i += 3) {
-        for (j = 5; j <= 34; j++) world_maps[2][i][j] = 1; // Ï±ÖÏû• Î∞∞Ïπò ?¥Ïßù Ï°∞Ï†ï
-    }
-    // [Íµ¨Ï°∞ Î≥ÄÍ≤? ?§Î•∏Ï™?Î¨?3)?Ä Ïπ®Ïã§Í≥??∞Í≤∞?òÎäî ?ºÎ∞ò Î¨?/ ?ºÏ™Ω Î¨?7)???àÏ∂ú ?ÑÏö© Î¨∏ÏúºÎ°??àÎ°ú ?†ÏÑ§!
-    world_maps[2][10][MAP_WIDTH - 2] = 3;
-    world_maps[2][10][1] = 7; // ?àÏ∂ú ?ÑÏö© ?πÏàò ?Ä???òÎ≤Ñ '7' ÏßÄ??
-    world_maps[2][1][1] = 6; world_maps[2][1][2] = 6;
+    for (j = 4; j <= 20; j += 4) { world_maps[2][4][j] = TILE_WALL; world_maps[2][8][j] = TILE_WALL; }
+    world_maps[2][13][12] = 4;
 
-    // --- [Room 3: ?¥Îëê??Í∏?Î≥µÎèÑ] ---
-    for (i = 4; i <= 15; i += 4) {
-        for (j = 10; j <= 15; j++) world_maps[3][i][j] = 1;
-        for (j = 25; j <= 30; j++) world_maps[3][i + 2][j] = 1;
-    }
-    world_maps[3][10][1] = 2;
-    world_maps[3][1][36] = 6; world_maps[3][1][37] = 6;
+    for (j = 4; j <= 15; j++) world_maps[3][6][j] = TILE_WALL;
+    world_maps[3][2][2] = TILE_CLOSET; world_maps[3][2][3] = TILE_CLOSET; world_maps[3][0][10] = 5;
+
+    for (i = 4; i <= 8; i++) world_maps[4][i][8] = TILE_WALL;
+    world_maps[4][5][19] = TILE_EXIT; world_maps[4][0][10] = 6;
+
+    // 2√˛ πË¡§
+    world_maps[5][0][5] = 3; world_maps[5][0][25] = 5;
+    world_maps[5][MAP_HEIGHT - 1][5] = 4; world_maps[5][MAP_HEIGHT - 1][30] = 6;
+
+    world_maps[10][11][10] = 3; world_maps[10][1][2] = TILE_STAIRS;
+
+    for (j = 4; j <= 20; j += 4) { world_maps[9][4][j] = TILE_WALL; world_maps[9][8][j] = TILE_WALL; }
+    world_maps[9][13][12] = 5;
+
+    world_maps[6][0][10] = 4; world_maps[6][5][19] = 10;
+
+    world_maps[7][5][0] = 10;
+
+    world_maps[8][0][10] = 6;
+    world_maps[8][4][10] = TILE_DESK;
 }
 
 int main() {
     int currentRoom = 0;
-    int prevRoom = 0;
-    int px = 20, py = 14;
-    int mx = 30, my = 5;
-
-    bool bossActive = true;
-    int bossFollowTimer = 0;
-    int bossReappearTimer = 0;
-    bool bossWaitingAfterHide = false;
-
-    bool isHidden = false;
-    bool spacePressed = false;
-    bool gameOver = false;
-    bool gameClear = false;
+    int px = 5, py = 10; int mx = -10, my = -10;
 
     bool bossActive = false; int bossFollowTimer = 60;
     bool isHidden = false; bool spacePressed = false;
     bool gameOver = false; bool gameClear = false; // [ºˆ¡§ øœ∑·] æ’ø° ¿⁄∑·«¸ bool¿ª ¡§»Æ«œ∞‘ √ﬂ∞°«ﬂΩ¿¥œ¥Ÿ.
 
-    int i, j;
-    int nextX, nextY;
-    int targetX, targetY;
-    int tileValue;
-    int targetRoom;
+    int playerMoveTurn = 0; int monsterMoveTurn = 0; int monsterSubTurn = 0;
+    int i, j, nextX, nextY;
 
-    char* roomNames[4];
+    char* roomNames[NUM_ROOMS];
     CONSOLE_CURSOR_INFO cursorInfo;
 
-    roomNames[0] = "Main Lobby (Room 0)";
-    roomNames[1] = "Cozy Bedroom (Room 1)";
-    roomNames[2] = "Secret Library (Room 2)";
-    roomNames[3] = "Dark Hallway (Room 3)";
+    roomNames[0] = "1√˛ ¡ﬂæ” ∫πµµ"; roomNames[1] = "1√˛ ∞Ë¥‹Ω«"; roomNames[2] = "1√˛ ∞≠¿«Ω«";
+    roomNames[3] = "«–ª˝ ∞˙πÊ"; roomNames[4] = "1√˛ ±≥ºˆΩ« (≈ª√‚±∏)"; roomNames[5] = "2√˛ æ∆∑°√˛ ∫πµµ";
+    roomNames[6] = "¿Ã¿∫ºÆ ±≥ºˆΩ«"; roomNames[7] = "°⁄ ∫Òπ–∞¯∞£ °⁄"; roomNames[8] = "2√˛ √¢∞Ì";
+    roomNames[9] = "2√˛ ∞≠¿«Ω«"; roomNames[10] = "2√˛ ∞Ë¥‹Ω«";
 
-    initWorldMaps();
+    initWorldMaps(); initDoors();
 
-    cursorInfo.bVisible = FALSE;
-    cursorInfo.dwSize = 1;
+    cursorInfo.bVisible = FALSE; cursorInfo.dwSize = 1;
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
-
     system("cls");
 
     while (!gameOver && !gameClear) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-        // 1. ?îÎ©¥ ?åÎçîÎß?
+        // 1. »≠∏È ∑ª¥ı∏µ
         gotoxy(0, 0);
+        setColor(COLOR_WHITE);
         printf("+-------------------------------------------------------------------------------+\n");
-        printf("| Room: %-30s | Status: %-27s |\n", roomNames[currentRoom], isHidden ? "HIDING IN CLOSET" : "SURVIVING...");
-        printf("| Inventory: %-66s |\n", hasKey ? "[KEY]" : "EMPTY");
+        printf("| πÊ ¡§∫∏: %-26s | ªÛ≈¬: %-31s |\n", roomNames[currentRoom], isHidden ? "ø ¿Âø° º˚¿Ω (SAFE)" : "√ﬂ∞›¥Á«œ¥¬ ¡ﬂ...");
+        printf("| º“¡ˆ«∞: %-68s |\n", hasKey ? "[±≥ºˆΩ« ø≠ºË]" : "æ¯¿Ω");
         printf("+-------------------------------------------------------------------------------+\n");
 
         for (i = 0; i < MAP_HEIGHT; i++) {
             for (j = 0; j < MAP_WIDTH; j++) {
-                if (i == py && j == px && !isHidden) {
-                    printf("P ");
-                }
-                else if (i == my && j == mx && bossActive) {
-                    printf("M ");
-                }
-                else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) {
-                    printf("* ");
-                }
-                else if ((currentMap[i][j] >= 2 && currentMap[i][j] <= 5) || currentMap[i][j] == 7) {
-                    printf("D "); // ?àÎ°ú ÎßåÎì† ?ºÏ™Ω ?àÏ∂ú Î¨∏ÎèÑ ?îÎ©¥?êÎäî 'D'Î°?Ï∂úÎ†•?òÍ≤å ?§Ï†ï
-                }
-                else if (currentMap[i][j] == 1) {
-                    if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) printf("# ");
+                if (j >= room_limit_width[currentRoom] || i >= room_limit_height[currentRoom]) { printf("  "); }
+                else if (i == py && j == px && !isHidden) { setColor(COLOR_BLUE); printf("P "); }
+                else if (i == my && j == mx && bossActive) { setColor(COLOR_RED); printf("M "); }
+                else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) { setColor(COLOR_GREEN); printf("* "); }
+                else if ((currentMap[i][j] >= 3 && currentMap[i][j] <= 6) || currentMap[i][j] == 10 || currentMap[i][j] == TILE_EXIT) { setColor(COLOR_BROWN); printf("D "); }
+                else if (currentMap[i][j] == TILE_STAIRS) { setColor(COLOR_PURPLE); printf("S "); }
+                else if (currentMap[i][j] == TILE_DESK) { setColor(COLOR_YELLOW); printf("T "); }
+                else if (currentMap[i][j] == TILE_WALL) {
+                    setColor(COLOR_DARKGRAY);
+                    if (i == 0 || i == room_limit_height[currentRoom] - 1 || j == 0 || j == room_limit_width[currentRoom] - 1) printf("# ");
                     else printf("X ");
                 }
                 else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("H "); }
@@ -182,23 +184,26 @@ int main() {
             printf("\n");
         }
 
-        // 2. ?°Ìòî????Í≤åÏûÑ ?§Î≤Ñ ?êÏ†ï
-        if (bossActive && !isHidden && px == mx && py == my) {
-            gameOver = true;
-            break;
-        }
+        printMessageLog();
 
-        // 3. ?§Ìéò?¥Ïä§Î∞??ÖÎ†• Ï≤òÎ¶¨ (?®Í∏∞Í∏?OR ?ÑÏù¥??Ï§çÍ∏∞)
+        if (bossActive && !isHidden && px == mx && py == my) { gameOver = true; break; }
+
+        // 2. Ω∫∆‰¿ÃΩ∫πŸ ªÛ»£¿€øÎ
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
-                if (currentRoom == itemRoom && !isItemPicked) {
-                    if (abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
-                        hasKey = true;
-                        isItemPicked = true;
-                        gotoxy(0, MAP_HEIGHT + 4);
-                        printf("[!] ?àÏ∂ú ?¥Ïá†Î•??çÎìù?àÏäµ?àÎã§!                      \n");
-                        Sleep(600);
-                    }
+                if (currentRoom == 8 && abs(px - 10) <= 1 && abs(py - 4) <= 1) {
+                    strcpy_s(messageLog, sizeof(messageLog), "√•ªÛ º≠∂¯ø°º≠ ≥Î∆Æ∏¶ πﬂ∞ﬂ«ﬂ¥Ÿ: '∫Òπ–π¯»£¥¬ [1111]¿Ã¥Ÿ.' (≥—æÓ∞°∑¡∏È Space)");
+                    printMessageLog();
+                    while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
+                    while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
+                    strcpy_s(messageLog, sizeof(messageLog), "∫Òπ–π¯»£ ¥‹º≠∏¶ »Æ¿Œ«ﬂΩ¿¥œ¥Ÿ.");
+                    spacePressed = true; system("cls"); continue;
+                }
+
+                if (currentRoom == itemRoom && !isItemPicked && abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
+                    hasKey = true; isItemPicked = true;
+                    strcpy_s(messageLog, sizeof(messageLog), "∞≠¿«Ω« πŸ¥⁄ø°º≠ [±≥ºˆΩ« ∏∂Ω∫≈Õ ø≠ºË]∏¶ »πµÊ«ﬂΩ¿¥œ¥Ÿ!");
+                    spacePressed = true; continue;
                 }
 
                 if (currentMap[py][px] == TILE_CLOSET) {
@@ -260,12 +265,9 @@ int main() {
                         }
                     }
 
-        // 4. ?åÎ†à?¥Ïñ¥ ?¥Îèô Î∞??§ÏãúÍ∞?Î∞??ÑÌôò ?êÏ†ï
-        if (!isHidden) {
-            playerMoveTurn++;
-            if (playerMoveTurn >= 2) {
-                nextX = px;
-                nextY = py;
+                    cursorInfo.bVisible = FALSE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+                    system("cls"); spacePressed = true; continue;
+                }
 
                 if ((targetDoorTile >= 3 && targetDoorTile <= 6) || targetDoorTile == 10) {
                     bossActive = false;
@@ -325,7 +327,7 @@ int main() {
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         bool menuSpacePressed = false;
                         while (menuActive) {
-                            gotoxy(5, MAP_HEIGHT / 2); printf("°⁄ ø≠ºË∏¶ ªÁøÎ«ÿ «–±≥ ∞«π∞ π€¿∏∑Œ ≈ª√‚«œΩ√∞⁄Ω¿¥œ±Ó? °⁄");
+                            gotoxy(5, MAP_HEIGHT / 2); printf("°⁄ ø≠ºË∏¶ ªÁøÎ«ÿ W6 π€¿∏∑Œ ≈ª√‚«œΩ√∞⁄Ω¿¥œ±Ó? °⁄");
                             gotoxy(7, (MAP_HEIGHT / 2) + 3);
                             if (selection == 0) printf("¢∫ øπ      æ∆¥œø¿"); else printf("   øπ   ¢∫ æ∆¥œø¿");
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
@@ -344,33 +346,27 @@ int main() {
         }
         else { spacePressed = false; }
 
-                            // Î∞??ÑÌôò ???åÎ†à?¥Ïñ¥ Ï¥àÍ∏∞ ?ÑÏπò ?§Ï†ï
-                            if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
-                            else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 3; }
-                            else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; } // ?úÏû¨ ?§Ïñ¥?????∞Ï∏°?ºÎ°ú ÏßÑÏûÖ
-                            else if (currentRoom == 2 && targetRoom == 1) { px = 3; py = 10; }
-                            else if (currentRoom == 0 && targetRoom == 3) { px = 3; py = 10; }
-                            else if (currentRoom == 3 && targetRoom == 0) { px = MAP_WIDTH - 3; py = 10; }
+        // 3. «√∑π¿ÃæÓ ¿Ãµø
+        if (!isHidden) {
+            playerMoveTurn++;
+            if (playerMoveTurn >= 2) {
+                nextX = px; nextY = py;
+                if (GetAsyncKeyState(VK_UP) & 0x8000)    nextY--;
+                if (GetAsyncKeyState(VK_DOWN) & 0x8000)  nextY++;
+                if (GetAsyncKeyState(VK_LEFT) & 0x8000)  nextX--;
+                if (GetAsyncKeyState(VK_RIGHT) & 0x8000) nextX++;
 
-                            currentRoom = targetRoom;
-                            system("cls");
-                            playerMoveTurn = 0;
-                            continue;
-                        }
-                        else {
-                            px = nextX;
-                            py = nextY;
-                        }
+                if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
+                    int nextTile = currentMap[nextY][nextX];
+                    if (nextTile != TILE_WALL && !(nextTile >= 3 && nextTile <= 6) && nextTile != 10 && nextTile != TILE_EXIT && nextTile != TILE_DESK) {
+                        px = nextX; py = nextY;
                     }
                 }
                 playerMoveTurn = 0;
             }
         }
 
-        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-            gameOver = true;
-            break;
-        }
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { gameOver = true; break; }
 
         // 4. √ﬂ∞›¿⁄ Ω∫∆˘ ≈∏¿Ã∏” ¡∂¡§
         if (currentRoom != 0 && currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
@@ -381,63 +377,43 @@ int main() {
             }
         }
 
-        // 6. ?ÑÏò§?§Îãà AI
-        if (bossActive && mx != -10 && my != -10) {
+        // 5. æ∆ø¿ø¿¥œ AI √ﬂ∞›
+        if (currentRoom != 7 && bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
-            if (monsterMoveTurn >= 2) {
+            if (monsterMoveTurn >= 4) {
                 monsterSubTurn++;
                 if (monsterSubTurn % 5 != 0) {
-                    targetX = mx;
-                    targetY = my;
-
-                    if (!isHidden) {
-                        if (mx < px) targetX++;
-                        else if (mx > px) targetX--;
-                        if (my < py) targetY++;
-                        else if (my > py) targetY--;
-                    }
-                    else {
-                        if (mx < px) targetX++;
-                        else if (mx > px) targetX--;
-                        if (my < py) targetY++;
-                        else if (my > py) targetY--;
+                    int targetX = mx; int targetY = my;
+                    if (mx < px) targetX++; else if (mx > px) targetX--;
+                    if (my < py) targetY++; else if (my > py) targetY--;
 
                     if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
                         bossActive = false;
                         bossFollowTimer = -1;
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
-                        strcpy_s(messageLog, sizeof(messageLog), "æ∆ø¿ø¿¥œ∞° πÆ π€¿∏∑Œ øœ¿¸»˜ π∞∑Ø∞¨Ω¿¥œ¥Ÿ. æ»¿¸«’¥œ¥Ÿ.");
+                        strcpy_s(messageLog, sizeof(messageLog), "¿Ã¿∫ºÆ ±≥ºˆ¥‘≤≤º≠ πÆ π€¿∏∑Œ øœ¿¸»˜ ≥™∞°ºÃΩ¿¥œ¥Ÿ. æ»¿¸«’¥œ¥Ÿ.");
                     }
-
                     if (mx != -10 && my != -10) {
-                        if (currentMap[targetY][targetX] != 1) {
-                            mx = targetX;
-                            my = targetY;
-                        }
-                        else {
-                            if (currentMap[my][targetX] != 1) mx = targetX;
-                            else if (currentMap[targetY][mx] != 1) my = targetY;
+                        int monsterNextTile = currentMap[targetY][targetX];
+                        if (monsterNextTile != TILE_WALL && !(monsterNextTile >= 3 && monsterNextTile <= 6) && monsterNextTile != 10 && monsterNextTile != TILE_EXIT && monsterNextTile != TILE_DESK) {
+                            mx = targetX; my = targetY;
                         }
                     }
                 }
                 monsterMoveTurn = 0;
             }
         }
-
         Sleep(30);
     }
 
     system("cls");
+    setColor(COLOR_WHITE);
     if (gameClear) {
-        printf("\n\n\n\n\t?? [ STAGE CLEAR ] ??\n");
-        printf("\t?úÏû¨ ?ºÏ™Ω ?®Í≤®Ïß?Î¨∏ÏùÑ ?¥Í≥† ?Ä?ùÏóê???ÑÎ≤Ω?òÍ≤å ?àÏ∂ú?àÏäµ?àÎã§!\n");
-        printf("\tÏµúÏ¢Ö ?ùÏ°¥??Ï∂ïÌïò?úÎ¶Ω?àÎã§, ?ïÎãò!\n\n\n");
+        printf("\n\n\n\n\t?? [ STAGE CLEAR ] ??\n\t¥‹º≠∏¶ √£æ∆ ∫Òπ–π¯»£∏¶ «Æ∞Ì ¥Î≈ª√‚ø° øœ∫Æ»˜ º∫∞¯«ﬂ¥Ÿ!\n\n\n");
     }
     else {
-        printf("\n\n\n\n\t[ GAME OVER ]\n");
-        printf("\t?Ä?Ä?ùÏóê???àÏ∂ú?òÏ? Î™ªÌïòÍ≥??°Ìòî?µÎãà??..\n\n\n");
+        printf("\n\n\n\n\t[ GAME OVER ]\n\t¿Ã¿∫ºÆ ±≥ºˆ¥‘ø°∞‘ ¿‚«˚Ω¿¥œ¥Ÿ...\n\n\n");
     }
-
     return 0;
 }
