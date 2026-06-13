@@ -175,9 +175,9 @@ int main() {
             for (j = 0; j < MAP_WIDTH; j++) {
                 if (j >= room_limit_width[currentRoom] || i >= room_limit_height[currentRoom]) { printf("  "); }
                 else if (i == py && j == px && !isHidden) { setColor(COLOR_BLUE); printf("P "); }
-                else if (i == my && j == mx && bossActive) { setColor(COLOR_RED); printf("M "); }
+                else if (i == my && j == mx && bossActive) { setColor(COLOR_RED); printf("⊙_⊙ "); j += 2; }
                 else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) { setColor(COLOR_GREEN); printf("* "); }
-                else if ((currentMap[i][j] >= 3 && currentMap[i][j] <= 6) || currentMap[i][j] == 10 || currentMap[i][j] == TILE_EXIT) { setColor(COLOR_BROWN); printf("D "); }
+                else if ((currentMap[i][j] >= 3 && currentMap[i][j] <= 6) || currentMap[i][j] == 10 || currentMap[i][j] == TILE_EXIT) { setColor(COLOR_BROWN); printf("目 "); }
                 else if (currentMap[i][j] == TILE_STAIRS) { setColor(COLOR_PURPLE); printf("S "); }
                 else if (currentMap[i][j] == TILE_DESK) { setColor(COLOR_YELLOW); printf("T "); }
                 else if (currentMap[i][j] == TILE_WALL) {
@@ -185,7 +185,7 @@ int main() {
                     if (i == 0 || i == room_limit_height[currentRoom] - 1 || j == 0 || j == room_limit_width[currentRoom] - 1) printf("# ");
                     else printf("X ");
                 }
-                else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("H "); }
+                else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("▩"); }
                 else { printf("  "); }
             }
             printf("\n");
@@ -193,7 +193,12 @@ int main() {
 
         printMessageLog();
 
-        if (bossActive && !isHidden && px == mx && py == my) { gameOver = true; break; }
+        if (bossActive && !isHidden) {
+            if (abs(px - mx) <= 2 && py == my) {
+                gameOver = true;
+                break;
+            }
+        }
 
         // 2. 스페이스바 상호작용
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
@@ -408,7 +413,7 @@ int main() {
 
                     if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
                         bossActive = false;
-                        bossFollowTimer = -1;
+                        bossFollowTimer = -1;   
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
                         strcpy_s(messageLog, sizeof(messageLog), "이은석교수가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
