@@ -411,7 +411,7 @@ int main() {
                         bossFollowTimer = -1;
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
-                        strcpy_s(messageLog, sizeof(messageLog), "아오오니가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
+                        strcpy_s(messageLog, sizeof(messageLog), "이은석교수가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
                     }
                     if (mx != -10 && my != -10) {
                         int monsterNextTile = currentMap[targetY][targetX];
@@ -432,7 +432,7 @@ int main() {
         printf("\n\n\n\n\t[ STAGE CLEAR ]\n\t단서를 찾아 비밀번호를 풀고 대탈출에 완벽히 성공하셨습니다, 형님!\n\n\n");
     }
     else {
-        printf("\n\n\n\n\t[ GAME OVER ]\n\t아오오니에게 잡혔습니다...\n\n\n");
+        printf("\n\n\n\n\t[ GAME OVER ]\n\t이은석교수에게 잡혔습니다...\n\n\n");
     }
     return 0;
 }
