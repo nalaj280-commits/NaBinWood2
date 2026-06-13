@@ -1,4 +1,5 @@
-﻿#include <stdio.h>
+﻿#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
 #include <wchar.h>
 #include <windows.h>
 #include <fcntl.h>
@@ -6,616 +7,834 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
+#include <string.h>
+#include <math.h>
 
 #pragma warning(disable:4996)
 
-// --- 대저택 게임 관련 매크로 및 전역 변수 ---
-#define MAP_WIDTH 40
+#define MAP_WIDTH  40
 #define MAP_HEIGHT 20
-#define NUM_ROOMS 4
+#define NUM_ROOMS  11
 
-// 0: 빈공간, 1: 벽/가구, 2~5: 방 이동 문, 6: 숨을 수 있는 장롱(H), 7: 열쇠(K)
-int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
+#define TILE_EMPTY  0
+#define TILE_WALL   1
+#define TILE_DESK   2
+#define TILE_EXIT   7
+#define TILE_STAIRS 8
+#define TILE_CLOSET 15
 
-// 타이틀 및 콘솔 제어 전역 변수
+#define COLOR_BLUE     9
+#define COLOR_GREEN    10
+#define COLOR_RED      12
+#define COLOR_BROWN    6
+#define COLOR_DARKGRAY 8
+#define COLOR_WHITE    15
+#define COLOR_PURPLE   13
+#define COLOR_YELLOW   14
+#define COLOR_CYAN     11
+
 HANDLE hBuffer[2];
-int screenIndex = 0;
+int    screenIndex = 0;
+int    menu = 1;
+int    isRunning = 1;
 
-int menu = 1;
-int isRunning = 1;
-
-// --- 더블 버퍼링 제어 함수 ---
+// ============================================================
+//  더블 버퍼 기본 함수
+// ============================================================
 void init_double_buffer()
 {
-	CONSOLE_CURSOR_INFO cursorInfo;
-	cursorInfo.bVisible = FALSE;
-	cursorInfo.dwSize = 1;
-
-	for (int i = 0; i < 2; i++) {
-		hBuffer[i] = CreateConsoleScreenBuffer(
-			GENERIC_READ | GENERIC_WRITE,
-			FILE_SHARE_READ | FILE_SHARE_WRITE,
-			NULL,
-			CONSOLE_TEXTMODE_BUFFER,
-			NULL
-		);
-		SetConsoleCursorInfo(hBuffer[i], &cursorInfo);
-
-		COORD bufferSize = { 170, 60 };
-		SetConsoleScreenBufferSize(hBuffer[i], bufferSize);
-	}
+    CONSOLE_CURSOR_INFO ci = { 1, FALSE };
+    for (int i = 0; i < 2; i++) {
+        hBuffer[i] = CreateConsoleScreenBuffer(
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
+        SetConsoleCursorInfo(hBuffer[i], &ci);
+        COORD sz = { 170, 60 };
+        SetConsoleScreenBufferSize(hBuffer[i], sz);
+    }
 }
 
 void flip_buffer()
 {
-	SetConsoleActiveScreenBuffer(hBuffer[screenIndex]);
-	screenIndex = !screenIndex;
+    SetConsoleActiveScreenBuffer(hBuffer[screenIndex]);
+    screenIndex = !screenIndex;
 }
 
 void clear_buffer()
 {
-	COORD coord = { 0, 0 };
-	DWORD dwWritten;
-	FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', 170 * 60, coord, &dwWritten);
-	FillConsoleOutputAttribute(hBuffer[screenIndex], 7, 170 * 60, coord, &dwWritten);
+    COORD coord = { 0, 0 };
+    DWORD dw;
+    FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', 170 * 60, coord, &dw);
+    FillConsoleOutputAttribute(hBuffer[screenIndex], 7, 170 * 60, coord, &dw);
 }
 
-void set_color_buf(int color)
-{
-	SetConsoleTextAttribute(hBuffer[screenIndex], color);
+void set_color_buf(int color) {
+    SetConsoleTextAttribute(hBuffer[screenIndex], color);
 }
 
-void move_cursor_buf(int x, int y)
-{
-	COORD pos;
-	pos.X = x;
-	pos.Y = y;
-	SetConsoleCursorPosition(hBuffer[screenIndex], pos);
+void move_cursor_buf(int x, int y) {
+    COORD pos = { (SHORT)x, (SHORT)y };
+    SetConsoleCursorPosition(hBuffer[screenIndex], pos);
 }
 
-void print_buf(const wchar_t* format, ...)
+void print_buf(const wchar_t* fmt, ...)
 {
-	wchar_t buffer[1024];
-	va_list args;
-	va_start(args, format);
-	vswprintf(buffer, sizeof(buffer) / sizeof(wchar_t), format, args);
-	va_end(args);
-
-	DWORD written;
-	WriteConsoleW(hBuffer[screenIndex], buffer, lstrlenW(buffer), &written, NULL);
+    wchar_t buf[2048];
+    va_list args;
+    va_start(args, fmt);
+    vswprintf(buf, sizeof(buf) / sizeof(wchar_t), fmt, args);
+    va_end(args);
+    DWORD written;
+    WriteConsoleW(hBuffer[screenIndex], buf, lstrlenW(buf), &written, NULL);
 }
 
 int get_width(const wchar_t* str)
 {
-	int width = 0;
-	while (*str)
-	{
-		if (*str >= 0xAC00 && *str <= 0xD7A3)
-			width += 2;
-		else
-			width += 1;
-		str++;
-	}
-	return width;
+    int w = 0;
+    while (*str) {
+        w += (*str >= 0xAC00 && *str <= 0xD7A3) ? 2 : 1;
+        str++;
+    }
+    return w;
 }
 
 void print_align_left(const wchar_t* text, int total_width)
 {
-	int width = get_width(text);
-	print_buf(L"%ls", text);
-	for (int i = width; i < total_width; i++)
-	{
-		print_buf(L" ");
-	}
+    int w = get_width(text);
+    print_buf(L"%ls", text);
+    for (int i = w; i < total_width; i++) print_buf(L" ");
 }
 
-// --- 맵 초기화 함수 (형님의 원래 방 배치 유지 + 열쇠 추가) ---
-void initWorldMaps() {
-	for (int r = 0; r < NUM_ROOMS; r++) {
-		for (int i = 0; i < MAP_HEIGHT; i++) {
-			for (int j = 0; j < MAP_WIDTH; j++) {
-				if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) {
-					world_maps[r][i][j] = 1;
-				}
-				else {
-					world_maps[r][i][j] = 0;
-				}
-			}
-		}
-	}
-
-	// --- [Room 0: 대저택 현관 로비] ---
-	for (int j = 15; j <= 24; j++) { world_maps[0][9][j] = 1; world_maps[0][10][j] = 1; }
-	world_maps[0][3][5] = 1; world_maps[0][3][34] = 1;
-	world_maps[0][0][20] = 2;
-	world_maps[0][10][MAP_WIDTH - 1] = 5;
-	world_maps[0][2][2] = 6;
-
-	// --- [Room 1: 침실] ---
-	for (int i = 3; i <= 6; i++) { for (int j = 4; j <= 8; j++) world_maps[1][i][j] = 1; }
-	for (int j = 25; j <= 35; j++) world_maps[1][15][j] = 1;
-	world_maps[1][MAP_HEIGHT - 1][20] = 2;
-	world_maps[1][10][0] = 4;
-	world_maps[1][2][37] = 6;
-	world_maps[1][5][35] = 7;              // 침실 구석 열쇠 배치
-
-	// --- [Room 2: 비밀의 서재] ---
-	for (int i = 3; i <= 14; i += 3) {
-		for (int j = 5; j <= 30; j++) world_maps[2][i][j] = 1;
-	}
-	world_maps[2][10][MAP_WIDTH - 1] = 3;
-	world_maps[2][1][1] = 6;
-
-	// --- [Room 3: 어두운 긴 복도] ---
-	for (int i = 4; i <= 15; i += 4) {
-		for (int j = 10; j <= 15; j++) world_maps[3][i][j] = 1;
-		for (int j = 25; j <= 30; j++) world_maps[3][i + 2][j] = 1;
-	}
-	world_maps[3][10][0] = 2;
-	world_maps[3][1][37] = 6;
-}
-
-// --- 스마트폰 연출 관련 함수들 ---
-void draw_phone()
+void set_cursor_visible(bool visible)
 {
-	int x = 40;
-	int y = 3;
-
-	move_cursor_buf(x, y);
-	print_buf(L"┌─────────────────────────────────────────┐");
-	for (int i = 1; i < 40; i++)
-	{
-		move_cursor_buf(x, y + i);
-		print_buf(L"│                                         │");
-	}
-	move_cursor_buf(x, y + 40);
-	print_buf(L"└─────────────────────────────────────────┘");
+    CONSOLE_CURSOR_INFO ci = { 1, visible ? TRUE : FALSE };
+    SetConsoleCursorInfo(hBuffer[0], &ci);
+    SetConsoleCursorInfo(hBuffer[1], &ci);
 }
 
-void draw_lock_screen()
+// ============================================================
+//  맵 데이터
+// ============================================================
+int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
+
+typedef struct { int targetRoom, nextPlayerX, nextPlayerY; } DoorInfo;
+DoorInfo doors[4];
+
+int room_limit_width[NUM_ROOMS] = { 40,20,24,20,20, 40,20,16,20,24,20 };
+int room_limit_height[NUM_ROOMS] = { 20,12,14,10,10, 20,12, 8,10,14,12 };
+
+int  itemRoom = 2, itemX = 18, itemY = 5;
+bool hasKey = false, isItemPicked = false;
+wchar_t messageLog[200] = L"주변을 수색하여 탈출할 단서를 찾으십시오."; 
+int  lastExitX = -10, lastExitY = -10;
+bool bossDefeatedInRoom = false, isDoorUnlocked = false, isFirstRoom = true;
+
+// ============================================================
+//  drawSingleTile — 버퍼에 타일 1개 출력
+// ============================================================
+void drawSingleTile(int room, int row, int col)
 {
-	move_cursor_buf(56, 6);
-	print_buf(L"6월 22일 (월)");
+    if (row < 0 || row >= MAP_HEIGHT || col < 0 || col >= MAP_WIDTH) return;
+    move_cursor_buf(col * 2, row + 5);
+    int tile = world_maps[room][row][col];
 
-	move_cursor_buf(47, 9);  print_buf(L" __ ___        ______ ______\n");
-	move_cursor_buf(47, 10); print_buf(L"/_ | |__ \\   _  | ____| | ____|\n");
-	move_cursor_buf(47, 11); print_buf(L" | |   ) | (_) | |__   | |__\n");
-	move_cursor_buf(47, 12); print_buf(L" | |  / /      |___ \\  |___ \\ \n");
-	move_cursor_buf(47, 13); print_buf(L" | | / /_   _   ___) |  ___) |\n");
-	move_cursor_buf(47, 14); print_buf(L" |_| |____| (_) |____/  |____/\n");
+    if (col >= room_limit_width[room] || row >= room_limit_height[room]) {
+        print_buf(L"  ");
+    }
+    else if (room == itemRoom && !isItemPicked && row == itemY && col == itemX) {
+        set_color_buf(COLOR_YELLOW);  print_buf(L"⚷ "); set_color_buf(COLOR_WHITE);
+    }
+    else if ((tile >= 3 && tile <= 6) || tile == 10 || tile == TILE_EXIT) {
+        set_color_buf(COLOR_BROWN);  print_buf(L"目 "); set_color_buf(COLOR_WHITE);
+    }
+    else if (tile == TILE_STAIRS) {
+        set_color_buf(COLOR_PURPLE); print_buf(L"S "); set_color_buf(COLOR_WHITE);
+    }
+    else if (tile == TILE_DESK) {
+        set_color_buf(COLOR_CYAN); print_buf(L"✉ "); set_color_buf(COLOR_WHITE);
+    }
+    else if (tile == TILE_WALL) {
+        set_color_buf(COLOR_DARKGRAY);
+
+        int H = room_limit_height[room] - 1;
+        int W = room_limit_width[room] - 1;
+
+        bool isOuter = (row == 0 || row == H || col == 0 || col == W);
+
+        if (isOuter) {
+            // 모서리
+            if (row == 0 && col == 0) print_buf(L"╔═");
+            else if (row == 0 && col == W) print_buf(L"╗ ");
+            else if (row == H && col == 0) print_buf(L"╚═");
+            else if (row == H && col == W) print_buf(L"╝ ");
+            // 가로 테두리 (위/아래)
+            else if (row == 0 || row == H) print_buf(L"══");
+            // 세로 테두리 (좌/우)
+            else                           print_buf(L"║ ");
+        }
+        else {
+            // 내부 벽
+            print_buf(L"▓ ");
+        }
+
+        set_color_buf(COLOR_WHITE);
+    }
+
+    else if (tile == TILE_CLOSET) {
+        set_color_buf(COLOR_GREEN);  print_buf(L"▩ "); set_color_buf(COLOR_WHITE);
+    }
+    else { print_buf(L"  "); }
 }
 
-void draw_notification(const wchar_t* name, const wchar_t* msg)
+// ============================================================
+//  ★ 핵심: 매 프레임 백버퍼를 완전히 그리는 함수
+// ============================================================
+void drawFullFrame(int room, int px, int py, int mx, int my,
+    bool isHidden, bool bossActive,
+    const wchar_t* roomName)
 {
-	int x = 45;
-	int y = 32;
+    clear_buffer();
 
-	for (int i = 0; i < 4; i++)
-	{
-		move_cursor_buf(x, y + i);
-		print_buf(L"                                ");
-	}
+    // ── 상단 UI 헤더 (4줄) ───────────────────────────────────
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(0, 0);
+    print_buf(L"+-------------------------------------------------------------------------------+");
+    move_cursor_buf(0, 1);
+    print_buf(L"| ");
+    set_color_buf(COLOR_CYAN);
+    wchar_t tmp[80];
+    swprintf(tmp, 80, L"%-26ls", roomName);
+    print_buf(L"%ls", tmp);
+    set_color_buf(COLOR_WHITE);
+    print_buf(L" | ");
+    set_color_buf(isHidden ? COLOR_GREEN : COLOR_RED);
+    swprintf(tmp, 80, L"%-31ls", isHidden ? L"옷장에 숨음 (SAFE)" : L"추격당하는 중...");
+    print_buf(L"%ls", tmp);
+    set_color_buf(COLOR_WHITE);
+    print_buf(L" |");
+    move_cursor_buf(0, 2);
+    print_buf(L"| ");
+    set_color_buf(COLOR_YELLOW);
+    swprintf(tmp, 80, L"%-68ls", hasKey ? L"[교수실 열쇠]" : L"없음");
+    print_buf(L"%ls", tmp);
+    set_color_buf(COLOR_WHITE);
+    print_buf(L" |");
+    move_cursor_buf(0, 3);
+    print_buf(L"+-------------------------------------------------------------------------------+");
 
-	move_cursor_buf(x, y);
-	print_buf(L"┌──────────────────────────────┐");
-	move_cursor_buf(x, y + 1);
-	print_buf(L"│ ♥ "); print_align_left(name, 24); print_buf(L"  │");
-	move_cursor_buf(x, y + 2);
-	print_buf(L"│ "); print_align_left(msg, 29); print_buf(L"│");
-	move_cursor_buf(x, y + 3);
-	print_buf(L"└──────────────────────────────┘");
+    // ── 맵 전체 타일 ─────────────────────────────────────────
+    for (int i = 0; i < MAP_HEIGHT; i++)
+        for (int j = 0; j < MAP_WIDTH; j++)
+            drawSingleTile(room, i, j);
+
+    // ── 플레이어 ─────────────────────────────────────────────
+    if (!isHidden) {
+        move_cursor_buf(px * 2, py + 5);
+        set_color_buf(COLOR_BLUE); print_buf(L"P "); set_color_buf(COLOR_WHITE);
+    }
+
+    // ── 몬스터 ───────────────────────────────────────────────
+    if (bossActive && mx != -10 && my != -10) {
+        move_cursor_buf(mx * 2, my + 5);
+        set_color_buf(COLOR_RED); print_buf(L"⊙_⊙ "); set_color_buf(COLOR_WHITE);
+    }
+
+    // ── 메시지 로그 ──────────────────────────────────────────
+    int logY = MAP_HEIGHT + 5;
+    set_color_buf(COLOR_YELLOW);
+    move_cursor_buf(0, logY);
+    print_buf(L"=================================================================================");
+    move_cursor_buf(0, logY + 1);
+    set_color_buf(COLOR_WHITE);
+    wchar_t padded[160]; 
+    swprintf(padded, 160, L"[알림] %-70ls", messageLog);    
+    print_buf(L"%ls", padded);
+    move_cursor_buf(0, logY + 2);
+    set_color_buf(COLOR_YELLOW);
+    print_buf(L"=================================================================================");
+    set_color_buf(COLOR_WHITE);
 }
 
-void draw_art()
+// ============================================================
+//  showDialog — 게임 화면을 백버퍼에 먼저 그린 뒤 팝업 덮기
+// ============================================================
+void showDialog_on_frame(int room, int px, int py, int mx, int my,
+    bool isHidden, bool bossActive,
+    const wchar_t* roomName,
+    const wchar_t* speaker, const wchar_t* text)
 {
-	FILE* fp = fopen("art_title.txt", "rb");
-	if (!fp) return;
+    while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
 
-	char utf8Buffer[4096];
-	wchar_t wideBuffer[4096];
-	int line = 0;
+    drawFullFrame(room, px, py, mx, my, isHidden, bossActive, roomName);
 
-	while (fgets(utf8Buffer, sizeof(utf8Buffer), fp))
-	{
-		MultiByteToWideChar(CP_UTF8, 0, utf8Buffer, -1, wideBuffer, 4096);
-		move_cursor_buf(0, line);
-		int x = 0;
-		wchar_t* p = wideBuffer;
-		while (*p)
-		{
-			wchar_t ch = *p;
-			set_color_buf(8);
-			if (line >= 14 && line <= 24 && x >= 56 && x <= 121 && ch != L' ') set_color_buf(6);
-			DWORD written;
-			WriteConsoleW(hBuffer[screenIndex], &ch, 1, &written, NULL);
-			p++; x++;
-		}
-		line++;
-	}
-	fclose(fp);
-	set_color_buf(7);
+    int startY = MAP_HEIGHT + 5;
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(0, startY);
+    print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+    move_cursor_buf(0, startY + 1); print_buf(L"┃                                                                               ┃");
+    move_cursor_buf(0, startY + 2); print_buf(L"┃                                                                               ┃");
+    move_cursor_buf(0, startY + 3); print_buf(L"┃                                                                               ┃");
+    move_cursor_buf(0, startY + 4);
+    print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+    move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ %ls", speaker);
+    move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);
+    wchar_t padded[128]; swprintf(padded, 128, L"%-70ls", text);
+    print_buf(L"%ls", padded);
+    move_cursor_buf(66, startY + 3); set_color_buf(COLOR_GREEN); print_buf(L"(Space) ▼");
+
+    flip_buffer();
+
+    while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) Sleep(30);
+    while (GetAsyncKeyState(VK_SPACE) & 0x8000)  Sleep(10);
 }
 
-void draw_menu()
+// ============================================================
+//  initDoors / initWorldMaps
+// ============================================================
+void initDoors()
 {
-	if (menu == 1) set_color_buf(14); else set_color_buf(15);
-	move_cursor_buf(122, 23); print_buf(L"1. 게임 시작");
-	if (menu == 2) set_color_buf(14); else set_color_buf(15);
-	move_cursor_buf(122, 27); print_buf(L"2. 게임 설명");
-	if (menu == 3) set_color_buf(14); else set_color_buf(15);
-	move_cursor_buf(122, 31); print_buf(L"3. 제작자");
-	if (menu == 4) set_color_buf(14); else set_color_buf(15);
-	move_cursor_buf(122, 35); print_buf(L"4. 종료");
-	set_color_buf(7);
+    doors[0].targetRoom = 1; doors[0].nextPlayerX = 10; doors[0].nextPlayerY = 10;
+    doors[1].targetRoom = 2; doors[1].nextPlayerX = 12; doors[1].nextPlayerY = 12;
+    doors[2].targetRoom = 3; doors[2].nextPlayerX = 10; doors[2].nextPlayerY = 2;
+    doors[3].targetRoom = 4; doors[3].nextPlayerX = 10; doors[3].nextPlayerY = 2;
 }
 
-int RenderTitle()
+void initWorldMaps()
 {
-	clear_buffer();
-	draw_art();
-	draw_menu();
-	flip_buffer();
+    int r, i, j;
+    for (r = 0; r < NUM_ROOMS; r++)
+        for (i = 0; i < MAP_HEIGHT; i++)
+            for (j = 0; j < MAP_WIDTH; j++) {
+                if (i == 0 || i == room_limit_height[r] - 1 || j == 0 || j == room_limit_width[r] - 1)
+                    world_maps[r][i][j] = TILE_WALL;
+                else if (j >= room_limit_width[r] || i >= room_limit_height[r])
+                    world_maps[r][i][j] = TILE_WALL;
+                else world_maps[r][i][j] = TILE_EMPTY;
+            }
 
-	int ch = _getch();
-	if (ch == 0 || ch == 224)
-	{
-		ch = _getch();
-		switch (ch)
-		{
-		case 72: if (menu > 1) menu--; break;
-		case 80: if (menu < 4) menu++; break;
-		}
-	}
-	else if (ch == 32)
-	{
-		if (menu == 1) return 2;
-		else if (menu == 2) return 3;
-		else if (menu == 3) return 4;
-		else if (menu == 4) isRunning = 0;
-	}
-	return 0;
+    world_maps[0][0][5] = 3; world_maps[0][0][20] = 4;
+    world_maps[0][MAP_HEIGHT - 1][10] = 5; world_maps[0][MAP_HEIGHT - 1][30] = 6;
+
+    for (i = 3; i <= 8; i++) for (j = 5; j <= 15; j++) world_maps[1][i][j] = TILE_WALL;
+    world_maps[1][11][10] = 3; world_maps[1][1][2] = TILE_STAIRS;
+
+    for (j = 4; j <= 20; j += 4) { world_maps[2][4][j] = TILE_WALL; world_maps[2][8][j] = TILE_WALL; }
+    world_maps[2][13][12] = 4;
+
+    for (j = 4; j <= 15; j++) world_maps[3][6][j] = TILE_WALL;
+    world_maps[3][2][2] = TILE_CLOSET; world_maps[3][2][3] = TILE_CLOSET;
+    world_maps[3][0][10] = 5;
+
+    for (i = 4; i <= 8; i++) world_maps[4][i][8] = TILE_WALL;
+    world_maps[4][5][19] = TILE_EXIT; world_maps[4][0][10] = 6;
+
+    world_maps[5][0][5] = 3; world_maps[5][0][25] = 5;
+    world_maps[5][MAP_HEIGHT - 1][5] = 4; world_maps[5][MAP_HEIGHT - 1][30] = 6;
+
+    world_maps[6][0][10] = 4; world_maps[6][5][19] = 10;
+    world_maps[7][5][0] = 10;
+    world_maps[8][0][10] = 6; world_maps[8][4][10] = TILE_DESK;
+
+    for (j = 4; j <= 20; j += 4) { world_maps[9][4][j] = TILE_WALL; world_maps[9][8][j] = TILE_WALL; }
+    world_maps[9][13][12] = 5;
+
+    world_maps[10][11][10] = 3; world_maps[10][1][2] = TILE_STAIRS;
 }
 
-// --- 오리지널 연출 틀 유지 + 버그 수정된 인게임 루프 ---
+// ============================================================
+//  인트로 연출 함수들
+// ============================================================
+void draw_phone() {
+    int x = 40, y = 3;
+    move_cursor_buf(x, y); print_buf(L"┌─────────────────────────────────────────┐");
+    for (int i = 1; i < 40; i++) { move_cursor_buf(x, y + i); print_buf(L"│                                         │"); }
+    move_cursor_buf(x, y + 40); print_buf(L"└─────────────────────────────────────────┘");
+}
+
+void draw_lock_screen() {
+    move_cursor_buf(56, 6);  print_buf(L"6월 22일 (월)");
+    move_cursor_buf(47, 9);  print_buf(L" __   ___        ______ ______");
+    move_cursor_buf(47, 10); print_buf(L"/_ | |__ \\   _  | ____| | ____|");
+    move_cursor_buf(47, 11); print_buf(L" | |   ) |  (_) | |__   | |__");
+    move_cursor_buf(47, 12); print_buf(L" | |  / /       |___ \\  |___ \\ ");
+    move_cursor_buf(47, 13); print_buf(L" | | / /_    _   ___) |  ___) |");
+    move_cursor_buf(47, 14); print_buf(L" |_| |____| (_) |____/  |____/");
+}
+
+void draw_notification(const wchar_t* name, const wchar_t* msg) {
+    int x = 45, y = 32;
+    for (int i = 0; i < 4; i++) { move_cursor_buf(x, y + i); print_buf(L"                                "); }
+    move_cursor_buf(x, y);     print_buf(L"┌──────────────────────────────┐");
+    move_cursor_buf(x, y + 1); print_buf(L"│ ♥ "); print_align_left(name, 24); print_buf(L"  │");
+    move_cursor_buf(x, y + 2); print_buf(L"│ ");   print_align_left(msg, 29);  print_buf(L"│");
+    move_cursor_buf(x, y + 3); print_buf(L"└──────────────────────────────┘");
+}
+
+void draw_art() {
+    FILE* fp = fopen("art_title.txt", "rb");
+    if (!fp) return;
+    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
+    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
+        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
+        move_cursor_buf(0, line);
+        int x = 0; wchar_t* p = wideBuf;
+        while (*p) {
+            wchar_t ch = *p; set_color_buf(8);
+            if (line >= 14 && line <= 24 && x >= 56 && x <= 121 && ch != L' ') set_color_buf(6);
+            DWORD w; WriteConsoleW(hBuffer[screenIndex], &ch, 1, &w, NULL);
+            p++; x++;
+        }
+        line++;
+    }
+    fclose(fp); set_color_buf(7);
+}
+
+void draw_menu() {
+    if (menu == 1) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
+    move_cursor_buf(122, 23); print_buf(L"1. 게임 시작");
+    if (menu == 2) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
+    move_cursor_buf(122, 27); print_buf(L"2. 게임 설명");
+    if (menu == 3) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
+    move_cursor_buf(122, 31); print_buf(L"3. 제작자");
+    if (menu == 4) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
+    move_cursor_buf(122, 35); print_buf(L"4. 종료");
+    set_color_buf(7);
+}
+
+int RenderTitle() {
+    clear_buffer(); draw_art(); draw_menu(); flip_buffer();
+    int ch = _getch();
+    if (ch == 0 || ch == 224) {
+        ch = _getch();
+        if (ch == 72 && menu > 1) menu--;
+        if (ch == 80 && menu < 4) menu++;
+    }
+    else if (ch == 32) {
+        if (menu == 1) return 2; if (menu == 2) return 3;
+        if (menu == 3) return 4; if (menu == 4) isRunning = 0;
+    }
+    return 0;
+}
+
+// ============================================================
+//  MainGame
+// ============================================================
 int MainGame()
 {
-	// ================= [1단계: 형님이 보내주신 원래 인트로 연출 틀 유지] =================
-	clear_buffer(); draw_phone(); draw_lock_screen(); flip_buffer();
-	Sleep(1000); Beep(1200, 200);
+    // ─── 인트로 컷씬 ─────────────────────────────────────────
+    clear_buffer(); draw_phone(); draw_lock_screen(); flip_buffer();
+    Sleep(1000); Beep(1200, 200);
 
-	clear_buffer(); draw_phone(); draw_lock_screen();
-	draw_notification(L"여자친구", L"자기야 오늘 무슨 날인지 알지?"); flip_buffer();
-	Sleep(2500); Beep(1000, 200);
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"자기야 오늘 무슨 날인지 알지?"); flip_buffer();
+    Sleep(2500); Beep(1000, 200);
 
-	clear_buffer(); draw_phone(); draw_lock_screen();
-	draw_notification(L"여자친구", L"자기야 오늘 무슨 날인지 알지?");
-	draw_notification(L"여자친구", L"나 오늘 이쁘게 입고 갈게!!"); flip_buffer();
-	Sleep(2500); Beep(700, 400);
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"자기야 오늘 무슨 날인지 알지?");
+    draw_notification(L"여자친구", L"나 오늘 이쁘게 입고 갈게!!"); flip_buffer();
+    Sleep(2500); Beep(700, 400);
 
-	clear_buffer(); draw_phone(); draw_lock_screen();
-	draw_notification(L"여자친구", L"나 오늘 이쁘게 입고 갈게!!");
-	draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!"); flip_buffer();
-	Sleep(3000); Beep(1200, 200);
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"나 오늘 이쁘게 입고 갈게!!");
+    draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!"); flip_buffer();
+    Sleep(3000); Beep(1200, 200);
 
-	// 우측 대사 연출들도 지워지지 않고 순차적으로 남도록 누적 백버퍼 빌드
-	clear_buffer(); draw_phone(); draw_lock_screen(); draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
-	move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지..."); flip_buffer();
-	Sleep(3000); Beep(1200, 200);
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
+    move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지..."); flip_buffer();
+    Sleep(3000); Beep(1200, 200);
 
-	clear_buffer(); draw_phone(); draw_lock_screen(); draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
-	move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
-	move_cursor_buf(100, 22); print_buf(L"이은석 교수님 수업인데.. 흠..."); flip_buffer();
-	Sleep(3000); Beep(1200, 200);
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
+    move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
+    move_cursor_buf(100, 22); print_buf(L"이은석 교수님 수업인데.. 흠..."); flip_buffer();
+    Sleep(3000); Beep(1200, 200);
 
-	clear_buffer(); draw_phone(); draw_lock_screen(); draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
-	move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
-	move_cursor_buf(100, 22); print_buf(L"이은석 교수님 수업인데.. 흠...");
-	move_cursor_buf(100, 24); print_buf(L"영찬이한테 대리출석 부탁해야겠다."); flip_buffer();
+    clear_buffer(); draw_phone(); draw_lock_screen();
+    draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
+    move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
+    move_cursor_buf(100, 22); print_buf(L"이은석 교수님 수업인데.. 흠...");
+    move_cursor_buf(100, 24); print_buf(L"영찬이한테 대리출석 부탁해야겠다."); flip_buffer();
+    _getch();
 
-	_getch(); // 키 입력 시 인게임 진입
+    // ── 잔상 제거: 양쪽 버퍼 모두 클리어 ────────────────────
+    screenIndex = 0; clear_buffer();
+    screenIndex = 1; clear_buffer();
+    screenIndex = 0;
 
+    // ─── 변수 초기화 ─────────────────────────────────────────
+    initWorldMaps(); initDoors();
+    hasKey = false; isItemPicked = false; isDoorUnlocked = false;
+    isFirstRoom = true; bossDefeatedInRoom = false;
+    lastExitX = -10; lastExitY = -10;
+    wcscpy(messageLog, L"주변을 수색하여 탈출할 단서를 찾으십시오.");
+    int currentRoom = 0, px = 5, py = 10, mx = -10, my = -10;
+    bool bossActive = false; int bossFollowTimer = 60;
+    bool isHidden = false, spacePressed = false, gameOver = false, gameClear = false;
+    int monsterMoveTurn = 0, monsterSubTurn = 0;
+    int nextX, nextY, i, j;
 
-	// ================= [2단계: 대저택 탈출 게임 엔진] =================
-	initWorldMaps();
+    const wchar_t* roomNames[NUM_ROOMS] = {
+        L"1층 중앙 복도",        L"1층 계단실",         L"1층 강의실",
+        L"학생 과방",            L"1층 교수실(탈출구)",  L"2층 복도",
+        L"이은석 교수실",        L"[비밀공간]",          L"2층 창고",
+        L"2층 강의실",           L"2층 계단실"
+    };
 
-	int currentRoom = 0;
-	int prevRoom = 0;
-	int px = 20, py = 14;
+    set_cursor_visible(false);
+    static DWORD lastMoveTime = 0;
 
-	int mx = 30, my = 5;
-	bool bossActive = true;
-	int bossFollowTimer = 0;
-	int roomChangeCountAfterHide = 0;
+    while (!gameOver && !gameClear) {
+        int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-	bool isHidden = false;
-	bool spacePressed = false;
-	bool gameOver = false;
-	bool gameClear = false;
+        // ★★★ 핵심: 매 프레임 백버퍼에 전체 프레임을 완전히 그리고 flip 1회 ★★★
+        drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+        flip_buffer();
 
-	int hasKey = 0; // 열쇠 변수 복구
+        // ── 게임오버 판정 ────────────────────────────────────
+        if (bossActive && !isHidden && mx != -10)
+            if (abs(px - mx) <= 1 && abs(py - my) <= 1) { gameOver = true; break; }
 
-	int playerMoveTurn = 0;
-	int monsterMoveTurn = 0;
+        // ── 스페이스바 상호작용 ──────────────────────────────
+        if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+            if (!spacePressed) {
 
-	while (!gameOver && !gameClear) {
-		clear_buffer();
+                // [Room 8] 책상 단서
+                if (currentRoom == 8 && abs(px - 10) <= 1 && abs(py - 4) <= 1) {
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"책상 서랍에서 쪽지를 발견했다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"쪽지", L"'비밀번호는 [1111]이다.'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"비밀번호 단서를 확인했다. 잊지 말자.");
+                    spacePressed = true; continue;
+                }
 
-		int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
+                // 아이템 획득
+                if (currentRoom == itemRoom && !isItemPicked &&
+                    abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
+                    hasKey = true; isItemPicked = true;
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"시스템", L"강의실 바닥에서 반짝이는 것을 발견했습니다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"시스템", L"[교수실 마스터 열쇠]를 획득했습니다!");
+                    spacePressed = true; continue;
+                }
 
-		// 열쇠 획득 판정
-		if (currentMap[py][px] == 7) {
-			hasKey = 1;
-			currentMap[py][px] = 0;
-		}
+                // 옷장
+                if (currentMap[py][px] == TILE_CLOSET) {
+                    isHidden = !isHidden;
+                    wcscpy(messageLog, isHidden 
+                        ? L"옷장 속에 숨었습니다. 숨소리를 죽이십시오..." 
+                        : L"옷장에서 나왔습니다.");
+                }
 
-		// 상단 UI 렉 없이 동기화
-		move_cursor_buf(0, 0);
-		print_buf(L"+-------------------------------------------------------------------------------+\n");
-		char* roomNames[] = { "Main Lobby (Room 0)", "Cozy Bedroom (Room 1)", "Secret Library (Room 2)", "Dark Hallway (Room 3)" };
-		print_buf(L"| Room: %-22hs | Key: [ %d / 1 ] | Status: %-18hs |\n", roomNames[currentRoom], hasKey, isHidden ? "HIDING IN CLOSET" : "SURVIVING...");
-		print_buf(L"+-------------------------------------------------------------------------------+\n");
+                // 계단 1층 <-> 2층
+                if (currentRoom == 1 && abs(px - 2) + abs(py - 1) <= 1) {
+                    currentRoom = 10; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
+                    bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
+                    wcscpy(messageLog, L"2층 계단실로 올라갔습니다.");
+                    spacePressed = true; continue;
+                }
+                if (currentRoom == 10 && abs(px - 2) + abs(py - 1) <= 1) {
+                    currentRoom = 1; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
+                    bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
+                    wcscpy(messageLog, L"1층 계단실로 내려왔습니다.");
+                    spacePressed = true; continue;
+                }
 
-		// 맵 그리기 엔진 (문 'D' 튀어나오게 처리)
-		for (int i = 0; i < MAP_HEIGHT; i++) {
-			for (int j = 0; j < MAP_WIDTH; j++) {
+                // 인접 문 탐색
+                int dx4[4] = { 0,0,-1,1 }, dy4[4] = { -1,1,0,0 };
+                int targetDoorTile = 0;
+                for (int d = 0; d < 4; d++) {
+                    int cx = px + dx4[d], cy = py + dy4[d];
+                    if (cx >= 0 && cx < MAP_WIDTH && cy >= 0 && cy < MAP_HEIGHT) {
+                        int t = currentMap[cy][cx];
+                        if ((t >= 3 && t <= 6) || t == 10) { targetDoorTile = t; break; }
+                    }
+                }
 
-				// 문(D)이 벽과 겹치지 않고 무조건 위로 튀어나오도록 최우선 처리
-				if (currentMap[i][j] >= 2 && currentMap[i][j] <= 5) {
-					set_color_buf(11); print_buf(L"D "); set_color_buf(7);
-				}
-				else if (i == py && j == px && !isHidden) {
-					set_color_buf(14); print_buf(L"P "); set_color_buf(7);
-				}
-				else if (i == my && j == mx && bossActive) {
-					set_color_buf(12); print_buf(L"M "); set_color_buf(7);
-				}
-				else if (currentMap[i][j] == 7) { // 열쇠 렌더링
-					set_color_buf(13); print_buf(L"K "); set_color_buf(7);
-				}
-				else if (currentMap[i][j] == 6) {
-					if (i == py && j == px && isHidden) print_buf(L"  ");
-					else { set_color_buf(10); print_buf(L"H "); set_color_buf(7); }
-				}
-				else if (currentMap[i][j] == 1) {
-					if (i == 0 || i == MAP_HEIGHT - 1 || j == 0 || j == MAP_WIDTH - 1) print_buf(L"# ");
-					else print_buf(L"X ");
-				}
-				else {
-					print_buf(L"  ");
-				}
-			}
-			print_buf(L"\n");
-		}
+                // [Room 6] 비밀번호 문
+                if (currentRoom == 6 && targetDoorTile == 10) {
+                    if (isDoorUnlocked) {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"이미 잠금 해제된 비밀 통로를 통과합니다.");
+                        px = 1; py = 5; currentRoom = 7;
+                        lastExitX = -10; lastExitY = -10;
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                        bossDefeatedInRoom = true;
+                        spacePressed = true; continue;
+                    }
 
-		if (bossActive && !isHidden && px == mx && py == my) {
-			gameOver = true;
-			break;
-		}
+                    // 비밀번호 입력 팝업
+                    int startY = MAP_HEIGHT + 5;
+                    while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
 
-		// 스페이스바 숨기기 조작
-		if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-			if (!spacePressed) {
-				if (currentMap[py][px] == 6) {
-					isHidden = !isHidden;
-				}
-				spacePressed = true;
-			}
-		}
-		else {
-			spacePressed = false;
-		}
+                    drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                    set_color_buf(COLOR_WHITE);
+                    move_cursor_buf(0, startY);
+                    print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                    move_cursor_buf(0, startY + 1); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 2); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 3); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 4);
+                    print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                    move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 도어락");
+                    move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"비밀번호 4자리를 입력하세요: ");
 
-		// 플레이어 이동
-		if (!isHidden) {
-			playerMoveTurn++;
-			if (playerMoveTurn >= 2) {
-				int nextX = px;
-				int nextY = py;
+                    CONSOLE_CURSOR_INFO ci2 = { 1, TRUE };
+                    SetConsoleCursorInfo(hBuffer[screenIndex], &ci2);
+                    flip_buffer();
 
-				if (GetAsyncKeyState(VK_UP) & 0x8000)    nextY--;
-				if (GetAsyncKeyState(VK_DOWN) & 0x8000)  nextY++;
-				if (GetAsyncKeyState(VK_LEFT) & 0x8000)  nextX--;
-				if (GetAsyncKeyState(VK_RIGHT) & 0x8000) nextX++;
+                    COORD inputPos = { (SHORT)34, (SHORT)(startY + 2) };
+                    SetConsoleCursorPosition(hBuffer[!screenIndex], inputPos);
+                    wchar_t inputBuf[16] = { 0 }; DWORD inputRead = 0;
+                    ReadConsoleW(hBuffer[!screenIndex], inputBuf, 10, &inputRead, NULL);
+                    for (int k = 0; k < (int)inputRead; k++)
+                        if (inputBuf[k] == L'\r' || inputBuf[k] == L'\n') { inputBuf[k] = 0; break; }
+                    int inputPw = _wtoi(inputBuf);
+                    ci2.bVisible = FALSE;
+                    SetConsoleCursorInfo(hBuffer[0], &ci2);
+                    SetConsoleCursorInfo(hBuffer[1], &ci2);
 
-				if (currentMap[nextY][nextX] != 1) {
-					px = nextX;
-					py = nextY;
-				}
-				playerMoveTurn = 0;
-			}
-		}
+                    if (inputPw == 1111) {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다.");
+                        px = 1; py = 5; currentRoom = 7;
+                        lastExitX = -10; lastExitY = -10;
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                        bossDefeatedInRoom = true; isDoorUnlocked = true;
+                    }
+                    else {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"[경고] 비밀번호가 틀렸습니다!");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"나", L"이런, 소리가 너무 컸어... 교수가 이쪽으로 오고 있다!");
+                        bossActive = true; mx = 1; my = 1;
+                        monsterMoveTurn = -10; bossDefeatedInRoom = false;
+                    }
+                    spacePressed = true; continue;
+                }
 
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-			gameOver = true;
-			break;
-		}
+                // 일반 문 이동
+                if ((targetDoorTile >= 3 && targetDoorTile <= 6) || targetDoorTile == 10) {
+                    bossActive = false; bossFollowTimer = 25;
+                    bossDefeatedInRoom = false; isFirstRoom = false;
+                    if (currentRoom == 0) {
+                        int idx = targetDoorTile - 3;
+                        px = doors[idx].nextPlayerX; py = doors[idx].nextPlayerY;
+                        currentRoom = doors[idx].targetRoom;
+                        if (currentRoom == 1) { lastExitX = 10; lastExitY = 11; }
+                        if (currentRoom == 2) { lastExitX = 12; lastExitY = 13; }
+                        if (currentRoom == 3) { lastExitX = 10; lastExitY = 0; }
+                        if (currentRoom == 4) { lastExitX = 10; lastExitY = 0; }
+                    }
+                    else if (currentRoom == 5) {
+                        if (targetDoorTile == 3) { px = 10; py = 10; currentRoom = 10; lastExitX = 10; lastExitY = 11; }
+                        if (targetDoorTile == 5) { px = 12; py = 12; currentRoom = 9;  lastExitX = 12; lastExitY = 13; }
+                        if (targetDoorTile == 4) { px = 10; py = 1;  currentRoom = 6;  lastExitX = 10; lastExitY = 0; }
+                        if (targetDoorTile == 6) { px = 10; py = 1;  currentRoom = 8;  lastExitX = 10; lastExitY = 0; }
+                    }
+                    else if (currentRoom == 7 && targetDoorTile == 10) {
+                        px = 18; py = 5; currentRoom = 6; lastExitX = 19; lastExitY = 5;
+                    }
+                    else {
+                        int prev = currentRoom;
+                        if (prev == 1) { px = 5;  py = 1;            currentRoom = 0; lastExitX = 5;  lastExitY = 0; }
+                        if (prev == 2) { px = 20; py = 1;            currentRoom = 0; lastExitX = 20; lastExitY = 0; }
+                        if (prev == 3) { px = 10; py = MAP_HEIGHT - 2; currentRoom = 0; lastExitX = 10; lastExitY = MAP_HEIGHT - 1; }
+                        if (prev == 4) { px = 30; py = MAP_HEIGHT - 2; currentRoom = 0; lastExitX = 30; lastExitY = MAP_HEIGHT - 1; }
+                        if (prev == 10) { px = 5;  py = 1;            currentRoom = 5; lastExitX = 5;  lastExitY = 0; }
+                        if (prev == 9) { px = 25; py = 1;            currentRoom = 5; lastExitX = 25; lastExitY = 0; }
+                        if (prev == 6) { px = 5;  py = MAP_HEIGHT - 2; currentRoom = 5; lastExitX = 5;  lastExitY = MAP_HEIGHT - 1; }
+                        if (prev == 8) { px = 30; py = MAP_HEIGHT - 2; currentRoom = 5; lastExitX = 30; lastExitY = MAP_HEIGHT - 1; }
+                    }
+                    spacePressed = true; continue;
+                }
 
-		// 워프 및 열쇠 잠금 문 기믹 적용
-		int tileValue = currentMap[py][px];
-		if (tileValue >= 2 && tileValue <= 5 && !isHidden) {
+                // [Room 4] 탈출구
+                bool nearExit = false;
+                for (int d = 0; d < 4; d++) {
+                    int cy = py + dy4[d], cx = px + dx4[d];
+                    if (cy >= 0 && cy < MAP_HEIGHT && cx >= 0 && cx < MAP_WIDTH)
+                        if (currentMap[cy][cx] == TILE_EXIT) nearExit = true;
+                }
+                if (currentRoom == 4 && nearExit) {
+                    if (!hasKey) {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"[!] 교수실 비밀 통로가 잠겨있습니다.");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"나", L"굳게 잠겨있어... 탈출하려면 [마스터 열쇠]가 필요해.");
+                    }
+                    else {
+                        int selection = 0; bool mActive = true, mSp = false;
+                        int sY = MAP_HEIGHT + 5;
+                        while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
+                        while (mActive) {
+                            drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                            set_color_buf(COLOR_WHITE);
+                            move_cursor_buf(0, sY);
+                            print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                            move_cursor_buf(0, sY + 1); print_buf(L"┃                                                                               ┃");
+                            move_cursor_buf(0, sY + 2); print_buf(L"┃                                                                               ┃");
+                            move_cursor_buf(0, sY + 3); print_buf(L"┃                                                                               ┃");
+                            move_cursor_buf(0, sY + 4);
+                            print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                            move_cursor_buf(4, sY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 탈출구");
+                            move_cursor_buf(4, sY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까?");
+                            move_cursor_buf(6, sY + 3);
+                            if (selection == 0) print_buf(L"▶ 예        아니오");
+                            else                print_buf(L"   예      ▶ 아니오");
+                            flip_buffer();
+                            if (GetAsyncKeyState(VK_LEFT) & 0x8000) selection = 0;
+                            if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
+                            if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+                                if (!mSp) { if (selection == 0) gameClear = true; mActive = false; mSp = true; }
+                            }
+                            else { mSp = false; }
+                            Sleep(80);
+                        }
+                        if (gameClear) break;
+                    }
+                }
+                spacePressed = true;
+            }
+        }
+        else { spacePressed = false; }
 
-			// 로비(Room 0)의 북쪽 문 탈출 시 열쇠 검사 틀 작동
-			if (currentRoom == 0 && tileValue == 2) {
-				if (hasKey == 1) {
-					gameClear = true;
-					break;
-				}
-				else {
-					py += 1;
-					continue;
-				}
-			}
+        // ── 플레이어 이동 ────────────────────────────────────
+        if (GetTickCount() - lastMoveTime >= 130) {
+            nextX = px; nextY = py; bool moved = false;
+            if (GetAsyncKeyState(VK_UP) & 0x8000) { nextY--; moved = true; }
+            else if (GetAsyncKeyState(VK_DOWN) & 0x8000) { nextY++; moved = true; }
+            else if (GetAsyncKeyState(VK_LEFT) & 0x8000) { nextX--; moved = true; }
+            else if (GetAsyncKeyState(VK_RIGHT) & 0x8000) { nextX++; moved = true; }
+            if (moved && (nextX != px || nextY != py)) {
+                if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
+                    int nt = currentMap[nextY][nextX];
+                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK)
+                    {
+                        px = nextX; py = nextY; lastMoveTime = GetTickCount();
+                    }
+                }
+            }
+        }
 
-			prevRoom = currentRoom;
-			int targetRoom = tileValue - 2;
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { gameOver = true; break; }
 
-			if (bossActive) {
-				bossFollowTimer = 40;
-				bossActive = false;
-			}
+        // ── 보스 스폰 타이머 ─────────────────────────────────
+        if (currentRoom != 7 && !bossActive && !bossDefeatedInRoom && bossFollowTimer > 0) {
+            if (!(currentRoom == 0 && isFirstRoom)) {
+                bossFollowTimer--;
+                if (bossFollowTimer == 0) { bossActive = true; mx = lastExitX; my = lastExitY; }
+            }
+        }
 
-			if (!bossActive && bossFollowTimer == 0) {
-				roomChangeCountAfterHide++;
-				if (roomChangeCountAfterHide >= 3) {
-					bossActive = true;
-					mx = MAP_WIDTH - 2; my = 2;
-					roomChangeCountAfterHide = 0;
-				}
-			}
+        // ── 보스 AI ──────────────────────────────────────────
+        if (currentRoom != 7 && bossActive && mx != -10 && my != -10) {
+            monsterMoveTurn++;
+            if (monsterMoveTurn >= 12) {
+                monsterSubTurn++;
+                if (monsterSubTurn % 5 != 0) {
+                    int tx = mx, ty = my;
+                    if (mx < px) tx++; else if (mx > px) tx--;
+                    if (my < py) ty++; else if (my > py) ty--;
+                    if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                        bossDefeatedInRoom = true;
+                        wcscpy(messageLog, L"이은석 교수가 물러갔습니다. 안전합니다.");
+                    }
+                    if (mx != -10) {
+                        int mt = currentMap[ty][tx];
+                        if (mt != TILE_WALL && !(mt >= 3 && mt <= 6) && mt != 10 && mt != TILE_EXIT && mt != TILE_DESK)
+                        {
+                            mx = tx; my = ty;
+                        }
+                    }
+                }
+                monsterMoveTurn = 0;
+            }
+        }
+        Sleep(30);
+    }
 
-			if (currentRoom == 0 && targetRoom == 1) { px = 20; py = MAP_HEIGHT - 3; }
-			else if (currentRoom == 1 && targetRoom == 0) { px = 20; py = 2; }
-			else if (currentRoom == 1 && targetRoom == 2) { px = MAP_WIDTH - 3; py = 10; }
-			else if (currentRoom == 2 && targetRoom == 1) { px = 2; py = 10; }
-			else if (currentRoom == 0 && targetRoom == 3) { px = 2; py = 10; }
-			else if (currentRoom == 3 && targetRoom == 0) { px = MAP_WIDTH - 3; py = 10; }
-
-			currentRoom = targetRoom;
-			continue;
-		}
-
-		// 괴물 AI 및 타이머 제어
-		if (!bossActive && bossFollowTimer > 0) {
-			bossFollowTimer--;
-			if (bossFollowTimer == 0) {
-				bossActive = true;
-				if (currentRoom == 1 && prevRoom == 0) { mx = 20; my = MAP_HEIGHT - 1; }
-				else if (currentRoom == 0 && prevRoom == 1) { mx = 20; my = 0; }
-				else if (currentRoom == 2 && prevRoom == 1) { mx = MAP_WIDTH - 1; my = 10; }
-				else if (currentRoom == 1 && prevRoom == 2) { mx = 0; my = 10; }
-				else if (currentRoom == 3 && prevRoom == 0) { mx = 0; my = 10; }
-				else if (currentRoom == 0 && prevRoom == 3) { mx = MAP_WIDTH - 1; my = 10; }
-			}
-		}
-
-		if (bossActive) {
-			monsterMoveTurn++;
-			if (monsterMoveTurn >= 3) {
-				int targetX = mx;
-				int targetY = my;
-
-				if (!isHidden) {
-					if (mx < px) targetX++;
-					else if (mx > px) targetX--;
-					if (my < py) targetY++;
-					else if (my > py) targetY--;
-				}
-				else {
-					if (mx < px) targetX++;
-					else if (mx > px) targetX--;
-					if (my < py) targetY++;
-					else if (my > py) targetY--;
-
-					if (abs(mx - px) <= 1 && abs(my - py) <= 1) {
-						bossActive = false;
-						bossFollowTimer = 0;
-						roomChangeCountAfterHide = 0;
-						mx = -10; my = -10;
-					}
-				}
-
-				if (currentMap[targetY][targetX] != 1) {
-					mx = targetX;
-					my = targetY;
-				}
-				else {
-					if (currentMap[my][targetX] != 1) mx = targetX;
-					else if (currentMap[targetY][mx] != 1) my = targetY;
-				}
-				monsterMoveTurn = 0;
-			}
-		}
-
-		flip_buffer();
-		Sleep(30);
-	}
-
-	// 결과 화면 출력
-	clear_buffer();
-	move_cursor_buf(0, 0);
-	if (gameClear) {
-		print_buf(L"\n\n\n\n\t[ GAME CLEAR !! ]\n");
-		print_buf(L"\t열쇠를 사용하여 무사히 저택에서 대리출석(?)과 탈출에 성공했습니다!\n\n\n");
-	}
-	else {
-		print_buf(L"\n\n\n\n\t[ GAME OVER ]\n");
-		print_buf(L"\t대저택에서 탈출하지 못하고 잡혔습니다...\n\n\n");
-	}
-	print_buf(L"\t아무 키나 누르면 메인 화면으로 돌아갑니다.");
-	flip_buffer();
-	_getch();
-
-	return 0;
+    // ─── 결과 화면 ───────────────────────────────────────────
+    screenIndex = 0; clear_buffer();
+    screenIndex = 1; clear_buffer();
+    screenIndex = 0;
+    move_cursor_buf(30, 12);
+    if (gameClear) {
+        set_color_buf(COLOR_YELLOW); print_buf(L"[ STAGE CLEAR!! ]");
+        move_cursor_buf(10, 14); set_color_buf(COLOR_WHITE);
+        print_buf(L"비밀번호를 풀고 탈출에 성공했습니다! 영찬이한테 연락하세요!");
+    }
+    else {
+        set_color_buf(COLOR_RED); print_buf(L"[ GAME OVER ]");
+        move_cursor_buf(20, 14); set_color_buf(COLOR_WHITE);
+        print_buf(L"이은석 교수에게 잡혔습니다...");
+    }
+    move_cursor_buf(25, 17); set_color_buf(COLOR_DARKGRAY);
+    print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
+    flip_buffer();
+    _getch();
+    menu = 1; return 0;
 }
 
-int GameEX()
-{
-	clear_buffer();
-	move_cursor_buf(52, 10);  print_buf(L"게임 설명");
-	move_cursor_buf(52, 12);  print_buf(L"방향키 위/아래로 메뉴를 이동하고 Space바로 선택합니다.");
-	move_cursor_buf(52, 14);  print_buf(L"인게임에서 방향키로 이동하며, 침실(Room 1)에서 열쇠(K)를 찾아");
-	move_cursor_buf(52, 16);  print_buf(L"로비(Room 0)의 북쪽 탈출구 문(D)으로 나가면 클리어입니다.");
-	move_cursor_buf(52, 18);  print_buf(L"아무키나 누르면 타이틀로 돌아갑니다.");
-	flip_buffer();
-	_getch();
-	return 0;
+// ============================================================
+//  GameEX / Team / start_game / main
+// ============================================================
+int GameEX() {
+    clear_buffer();
+    move_cursor_buf(52, 8);  print_buf(L"=== 게임 설명 ===");
+    move_cursor_buf(52, 10); print_buf(L"방향키: 이동");
+    move_cursor_buf(52, 11); print_buf(L"Space : 문 열기 / 옷장 숨기 / 아이템 획득 / 상호작용");
+    move_cursor_buf(52, 12); print_buf(L"ESC   : 게임 종료 (타이틀로)");
+    move_cursor_buf(52, 14); print_buf(L"목표: 2층 창고 책상(T)에서 비밀번호 단서를 찾고");
+    move_cursor_buf(52, 15); print_buf(L"      이은석 교수실 비밀문을 열어 [마스터 열쇠]를 획득.");
+    move_cursor_buf(52, 16); print_buf(L"      1층 교수실 탈출구(目)로 탈출하면 클리어!");
+    move_cursor_buf(52, 18); print_buf(L"기호: P=플레이어  M=이은석교수  目=문  H=옷장");
+    move_cursor_buf(52, 19); print_buf(L"      S=계단  T=책상  *=아이템  #=외벽  X=내벽");
+    move_cursor_buf(52, 22); set_color_buf(COLOR_YELLOW); print_buf(L"아무 키나 누르면 타이틀로 돌아갑니다.");
+    set_color_buf(COLOR_WHITE); flip_buffer(); _getch(); return 0;
 }
 
-int Team()
-{
-	clear_buffer();
-	move_cursor_buf(52, 8);   print_buf(L"팀소개");
-	move_cursor_buf(52, 10);  print_buf(L"조건우 조장");
-	move_cursor_buf(52, 12);  print_buf(L"이경빈 천재");
-	move_cursor_buf(52, 14);  print_buf(L"정나라 천재");
-	move_cursor_buf(52, 16);  print_buf(L"아무키나 누르면 타이틀로 돌아갑니다.");
-	flip_buffer();
-	_getch();
-	return 0;
+int Team() {
+    clear_buffer();
+    move_cursor_buf(52, 8);  print_buf(L"=== 제작팀 소개 ===");
+    move_cursor_buf(52, 10); print_buf(L"조건우  - 조장 / 게임 기획 & 통합");
+    move_cursor_buf(52, 12); print_buf(L"이경빈  - 천재 / 렌더링 & 맵 설계");
+    move_cursor_buf(52, 14); print_buf(L"정나라  - 천재 / 스토리 & UI 디자인");
+    move_cursor_buf(52, 18); set_color_buf(COLOR_YELLOW); print_buf(L"아무 키나 누르면 타이틀로 돌아갑니다.");
+    set_color_buf(COLOR_WHITE); flip_buffer(); _getch(); return 0;
 }
 
-int start_game()
-{
-	clear_buffer();
-	move_cursor_buf(52, 10);
-	print_buf(L"Alt 와 Enter를 동시에 눌러 전체화면으로 플레이 해주세요");
-	flip_buffer();
-	Sleep(3000);
-	return 0;
+int start_game() {
+    clear_buffer();
+    move_cursor_buf(40, 10);
+    print_buf(L"Alt + Enter 를 눌러 전체화면으로 플레이하세요.");
+    flip_buffer(); Sleep(3000); return 0;
 }
 
 int main()
 {
-	_setmode(_fileno(stdout), _O_U16TEXT);
-
-	system("mode con cols=170 lines=60");
-	system("chcp 65001");
-	system("color 00");
-
-	init_double_buffer();
-
-	start_game();
-
-	int gameStatus = 0;
-
-	while (isRunning)
-	{
-		switch (gameStatus)
-		{
-		case 0:
-			gameStatus = RenderTitle();
-			break;
-		case 2:
-			gameStatus = MainGame();
-			break;
-		case 3:
-			gameStatus = GameEX();
-			break;
-		case 4:
-			gameStatus = Team();
-			break;
-		}
-	}
-
-	return 0;
+    _setmode(_fileno(stdout), _O_U16TEXT);
+    system("mode con cols=170 lines=60");
+    system("chcp 65001");
+    system("color 00");
+    init_double_buffer();
+    start_game();
+    int gameStatus = 0;
+    while (isRunning) {
+        switch (gameStatus) {
+        case 0: gameStatus = RenderTitle(); break;
+        case 2: gameStatus = MainGame();    break;
+        case 3: gameStatus = GameEX();      break;
+        case 4: gameStatus = Team();        break;
+        default: gameStatus = 0;            break;
+        }
+        if (!isRunning) break;
+    }
+    return 0;
 }
