@@ -457,6 +457,27 @@ void draw_art() {
     fclose(fp); set_color_buf(7);
 }
 
+void draw_lab_art() {
+    FILE* fp = fopen("art_lab.txt", "rb");
+    if (!fp) return;
+    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
+    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
+        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
+        move_cursor_buf(0, line);
+        wchar_t* p = wideBuf;
+        set_color_buf(COLOR_DARKGRAY);
+        while (*p) {
+            DWORD w;
+            WriteConsoleW(hBuffer[screenIndex], p, 1, &w, NULL);
+            p++;
+        }
+        line++;
+    }
+    fclose(fp);
+    set_color_buf(COLOR_WHITE);
+}
+
+
 void draw_menu() {
     if (menu == 1) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
     move_cursor_buf(122, 23); print_buf(L"1. 게임 시작");
@@ -524,11 +545,54 @@ int MainGame()
     draw_notification(L"여자친구", L"터미널에 2시까지 와야해!!");
     move_cursor_buf(100, 20); print_buf(L"아... 오늘.. 1주년 기념 여행가기로 했었지...");
     move_cursor_buf(100, 22); print_buf(L"이은석 교수님 수업인데.. 흠...");
-    move_cursor_buf(100, 24); print_buf(L"영찬이한테 대리출석 부탁해야겠다."); flip_buffer();
+    set_color_buf(COLOR_YELLOW);
+    move_cursor_buf(100, 40); print_buf(L"[스페이스바 누르면 진행]"); flip_buffer();
     _getch();
 
-    // 게임 시작 직전 잔상 완전 제거
+    // ── ★ 실험실 아스키아트 컷씬 (스마트폰 씬과 동일한 Sleep 연출) ──
     clear_both_buffers();
+
+    // 1단계: 아트만 먼저 등장
+    draw_lab_art();
+    flip_buffer();
+    Sleep(1500); Beep(800, 150);
+
+    // 2단계: 첫 번째 혼잣말 등장
+    clear_buffer(); draw_lab_art();
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
+    flip_buffer();
+    Sleep(3000); Beep(1200, 200);
+
+    // 3단계: 두 번째 혼잣말 등장
+    clear_buffer(); draw_lab_art();
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
+    move_cursor_buf(100, 23); print_buf(L"교수님 아직 안 오셨네...");
+    flip_buffer();
+    Sleep(3000); Beep(1200, 200);
+
+    // 4단계: 세 번째 혼잣말 등장
+    clear_buffer(); draw_lab_art();
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
+    move_cursor_buf(100, 23); print_buf(L"교수님 아직 안 오셨네...");
+    move_cursor_buf(100, 25); print_buf(L"빨리 챙겨서 나가야겠다.");
+    flip_buffer();
+    Sleep(3000); Beep(1200, 200);
+
+    // 5단계: 진행 안내 추가
+    clear_buffer(); draw_lab_art();
+    set_color_buf(COLOR_WHITE);
+    move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
+    move_cursor_buf(100, 23); print_buf(L"교수님 아직 안 오셨네...");
+    move_cursor_buf(100, 25); print_buf(L"빨리 챙겨서 나가야겠다.");
+    set_color_buf(COLOR_YELLOW);
+    move_cursor_buf(100, 40); print_buf(L"[스페이스바 누르면 진행]");
+    set_color_buf(COLOR_WHITE);
+    flip_buffer();
+    _getch();
+
 
     // ─── 변수 초기화 ─────────────────────────────────────────
     initWorldMaps(); initDoors();
