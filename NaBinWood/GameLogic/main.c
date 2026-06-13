@@ -83,6 +83,26 @@ void printMessageLog() {
     setColor(COLOR_WHITE);
 }
 
+// 특정 타일 하나만 다시 그리는 부분 렌더링 함수
+void drawSingleTile(int currentRoom, int i, int j) {
+    if (i < 0 || i >= MAP_HEIGHT || j < 0 || j >= MAP_WIDTH) return;
+    gotoxy(j * 2, i + 4);
+    int tile = world_maps[currentRoom][i][j];
+
+    if (j >= room_limit_width[currentRoom] || i >= room_limit_height[currentRoom]) { printf("  "); }
+    else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) { setColor(COLOR_GREEN); printf("* "); }
+    else if ((tile >= 3 && tile <= 6) || tile == 10 || tile == TILE_EXIT) { setColor(COLOR_BROWN); printf("目 "); }
+    else if (tile == TILE_STAIRS) { setColor(COLOR_PURPLE); printf("S "); }
+    else if (tile == TILE_DESK) { setColor(COLOR_YELLOW); printf("T "); }
+    else if (tile == TILE_WALL) {
+        setColor(COLOR_DARKGRAY);
+        if (i == 0 || i == room_limit_height[currentRoom] - 1 || j == 0 || j == room_limit_width[currentRoom] - 1) printf("# ");
+        else printf("X ");
+    }
+    else if (tile == TILE_CLOSET) { setColor(COLOR_GREEN); printf("▩"); }
+    else { printf("  "); }
+}
+
 void initDoors() {
     doors[0].targetRoom = 1; doors[0].nextPlayerX = 10; doors[0].nextPlayerY = 10;
     doors[1].targetRoom = 2; doors[1].nextPlayerX = 12; doors[1].nextPlayerY = 12;
@@ -158,40 +178,81 @@ int main() {
 
     cursorInfo.bVisible = FALSE; cursorInfo.dwSize = 1;
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
-    system("cls");
+
+    bool fullRedraw = true; // 방 이동 시 화면을 완전히 다시 그리기 위한 플래그
+    int oldPx = -1, oldPy = -1;
+    int oldMx = -1, oldMy = -1;
+    bool oldIsHidden = false;
+    char oldMessageLog[200] = "";
 
     while (!gameOver && !gameClear) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-        // 1. 화면 렌더링
-        gotoxy(0, 0);
-        setColor(COLOR_WHITE);
-        printf("+-------------------------------------------------------------------------------+\n");
-        printf("| 방 정보: %-26s | 상태: %-31s |\n", roomNames[currentRoom], isHidden ? "옷장에 숨음 (SAFE)" : "추격당하는 중...");
-        printf("| 소지품: %-68s |\n", hasKey ? "[교수실 열쇠]" : "없음");
-        printf("+-------------------------------------------------------------------------------+\n");
+        // 1. 화면 렌더링 (깜빡임 해결: 델타 렌더링)
+        if (fullRedraw) {
+            system("cls");
+            gotoxy(0, 0);
+            setColor(COLOR_WHITE);
+            printf("+-------------------------------------------------------------------------------+\n");
+            printf("| 방 정보: %-26s | 상태: %-31s |\n", roomNames[currentRoom], isHidden ? "옷장에 숨음 (SAFE)" : "추격당하는 중...");
+            printf("| 소지품: %-68s |\n", hasKey ? "[교수실 열쇠]" : "없음");
+            printf("+-------------------------------------------------------------------------------+\n");
 
-        for (i = 0; i < MAP_HEIGHT; i++) {
-            for (j = 0; j < MAP_WIDTH; j++) {
-                if (j >= room_limit_width[currentRoom] || i >= room_limit_height[currentRoom]) { printf("  "); }
-                else if (i == py && j == px && !isHidden) { setColor(COLOR_BLUE); printf("P "); }
-                else if (i == my && j == mx && bossActive) { setColor(COLOR_RED); printf("⊙_⊙ "); j += 2; }
-                else if (currentRoom == itemRoom && !isItemPicked && i == itemY && j == itemX) { setColor(COLOR_GREEN); printf("* "); }
-                else if ((currentMap[i][j] >= 3 && currentMap[i][j] <= 6) || currentMap[i][j] == 10 || currentMap[i][j] == TILE_EXIT) { setColor(COLOR_BROWN); printf("目 "); }
-                else if (currentMap[i][j] == TILE_STAIRS) { setColor(COLOR_PURPLE); printf("S "); }
-                else if (currentMap[i][j] == TILE_DESK) { setColor(COLOR_YELLOW); printf("T "); }
-                else if (currentMap[i][j] == TILE_WALL) {
-                    setColor(COLOR_DARKGRAY);
-                    if (i == 0 || i == room_limit_height[currentRoom] - 1 || j == 0 || j == room_limit_width[currentRoom] - 1) printf("# ");
-                    else printf("X ");
+            for (i = 0; i < MAP_HEIGHT; i++) {
+                for (j = 0; j < MAP_WIDTH; j++) {
+                    drawSingleTile(currentRoom, i, j);
                 }
-                else if (currentMap[i][j] == TILE_CLOSET) { setColor(COLOR_GREEN); printf("▩"); }
-                else { printf("  "); }
             }
-            printf("\n");
+
+            strcpy_s(oldMessageLog, sizeof(oldMessageLog), ""); // 대사창 강제 업데이트
+            fullRedraw = false;
+            oldPx = -1; oldPy = -1; oldMx = -1; oldMy = -1;
+            oldIsHidden = isHidden;
+        }
+        else {
+            // 상단 상태바 부분 업데이트
+            if (isHidden != oldIsHidden) {
+                gotoxy(46, 1);
+                setColor(COLOR_WHITE);
+                printf("%-31s", isHidden ? "옷장에 숨음 (SAFE)" : "추격당하는 중...   ");
+                oldIsHidden = isHidden;
+            }
         }
 
-        printMessageLog();
+        // 대사창 내용이 바뀌었을 때만 업데이트
+        if (strcmp(messageLog, oldMessageLog) != 0) {
+            printMessageLog();
+            strcpy_s(oldMessageLog, sizeof(oldMessageLog), messageLog);
+        }
+
+        // 플레이어 부분 렌더링 (이전 위치 지우고 새 위치 그리기)
+        if (oldPx != px || oldPy != py || oldIsHidden != isHidden) {
+            if (oldPx != -1 && oldPy != -1) {
+                drawSingleTile(currentRoom, oldPy, oldPx); // 이전 자리에 원래 맵 타일 복구
+            }
+            if (!isHidden) {
+                gotoxy(px * 2, py + 4);
+                setColor(COLOR_BLUE);
+                printf("P ");
+            }
+            oldPx = px; oldPy = py;
+        }
+
+        // 몬스터 부분 렌더링 (이전 위치 지우고 새 위치 그리기)
+        if (oldMx != mx || oldMy != my || !bossActive) {
+            if (oldMx != -1 && oldMy != -1) {
+                // ⊙_⊙ 는 3칸(6바이트)을 차지하므로 3개의 타일을 복구
+                drawSingleTile(currentRoom, oldMy, oldMx);
+                drawSingleTile(currentRoom, oldMy, oldMx + 1);
+                drawSingleTile(currentRoom, oldMy, oldMx + 2);
+            }
+            if (bossActive && mx != -10 && my != -10) {
+                gotoxy(mx * 2, my + 4);
+                setColor(COLOR_RED);
+                printf("⊙_⊙ ");
+            }
+            oldMx = mx; oldMy = my;
+        }
 
         if (bossActive && !isHidden) {
             if (abs(px - mx) <= 2 && py == my) {
@@ -205,17 +266,17 @@ int main() {
             if (!spacePressed) {
                 if (currentRoom == 8 && abs(px - 10) <= 1 && abs(py - 4) <= 1) {
                     strcpy_s(messageLog, sizeof(messageLog), "책상 서랍에서 노트를 발견했다: '비밀번호는 [1111]이다.' (넘어가려면 Space)");
-                    printMessageLog();
+                    printMessageLog(); strcpy_s(oldMessageLog, sizeof(oldMessageLog), messageLog);
                     while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                     while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
                     strcpy_s(messageLog, sizeof(messageLog), "비밀번호 단서를 확인했습니다.");
-                    spacePressed = true; system("cls"); continue;
+                    spacePressed = true; fullRedraw = true; continue;
                 }
 
                 if (currentRoom == itemRoom && !isItemPicked && abs(px - itemX) <= 1 && abs(py - itemY) <= 1) {
                     hasKey = true; isItemPicked = true;
                     strcpy_s(messageLog, sizeof(messageLog), "강의실 바닥에서 [교수실 마스터 열쇠]를 획득했습니다!");
-                    spacePressed = true; continue;
+                    fullRedraw = true; spacePressed = true; continue;
                 }
 
                 if (currentMap[py][px] == TILE_CLOSET) {
@@ -232,13 +293,13 @@ int main() {
                     currentRoom = 10; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
                     bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
                     strcpy_s(messageLog, sizeof(messageLog), "2층 계단실로 내려왔습니다.");
-                    system("cls"); spacePressed = true; continue;
+                    fullRedraw = true; spacePressed = true; continue;
                 }
                 if (currentRoom == 10 && abs(px - 2) + abs(py - 1) <= 1) {
                     currentRoom = 1; px = 2; py = 2; lastExitX = 2; lastExitY = 1;
                     bossActive = false; bossFollowTimer = 20; bossDefeatedInRoom = false;
                     strcpy_s(messageLog, sizeof(messageLog), "1층 계단실로 올라왔습니다.");
-                    system("cls"); spacePressed = true; continue;
+                    fullRedraw = true; spacePressed = true; continue;
                 }
 
                 int dx[4] = { 0, 0, -1, 1 }; int dy[4] = { -1, 1, 0, 0 };
@@ -263,30 +324,45 @@ int main() {
                         px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
                         bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
                         strcpy_s(messageLog, sizeof(messageLog), "이미 잠금 해제된 비밀 통로를 통과합니다.");
-                        system("cls"); spacePressed = true; continue;
+                        fullRedraw = true; spacePressed = true; continue;
                     }
 
-                    cursorInfo.bVisible = TRUE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+                    cursorInfo.bVisible = TRUE;
+                    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
 
                     gotoxy(0, MAP_HEIGHT + 7);
+                    printf("                                                                                 "); // 이전 라인 지우기
+                    gotoxy(0, MAP_HEIGHT + 7);
                     printf("-> 비밀번호 4자리를 입력하세요: ");
-                    int inputPassword = 0;
 
-                    if (scanf_s("%d", &inputPassword) == 1) {
-                        if (inputPassword == 1111) {
-                            px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
-                            bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
-                            isDoorUnlocked = true;
-                            strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다. (이제 그냥 다닐 수 있습니다.)");
-                        }
-                        else {
-                            strcpy_s(messageLog, sizeof(messageLog), "[경고] 비밀번호가 틀렸습니다! (아오오니가 문에서 추격을 시작합니다!)");
-                            bossActive = true; bossFollowTimer = 0; mx = currentDoorX; my = currentDoorY; bossDefeatedInRoom = false;
-                        }
+                    int inputPassword = 0;
+                    if (scanf_s("%d", &inputPassword) != 1) {
+                        while (getchar() != '\n');
+                        inputPassword = -1;
                     }
 
-                    cursorInfo.bVisible = FALSE; SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
-                    system("cls"); spacePressed = true; continue;
+                    if (inputPassword == 1111) {
+                        px = 1; py = 5; currentRoom = 7; lastExitX = -10; lastExitY = -10;
+                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10; bossDefeatedInRoom = true;
+                        isDoorUnlocked = true;
+                        strcpy_s(messageLog, sizeof(messageLog), "철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다.");
+                    }
+                    else {
+                        strcpy_s(messageLog, sizeof(messageLog), "[경고] 비밀번호가 틀렸습니다! 아오오니가 복도로 향했습니다!");
+                        bossActive = true;
+                        mx = 1;
+                        my = 1;
+                        monsterMoveTurn = -10;
+                        bossDefeatedInRoom = false;
+                        Sleep(500);
+                    }
+
+                    cursorInfo.bVisible = FALSE;
+                    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+
+                    fullRedraw = true; // 입력 후 화면 깔끔하게 정리
+                    spacePressed = true;
+                    continue;
                 }
 
                 if ((targetDoorTile >= 3 && targetDoorTile <= 6) || targetDoorTile == 10) {
@@ -326,7 +402,7 @@ int main() {
                         if (prevRoom == 6) { px = 5;  py = MAP_HEIGHT - 2; currentRoom = 5; lastExitX = 5; lastExitY = MAP_HEIGHT - 1; }
                         if (prevRoom == 8) { px = 30; py = MAP_HEIGHT - 2; currentRoom = 5; lastExitX = 30; lastExitY = MAP_HEIGHT - 1; }
                     }
-                    system("cls"); playerMoveTurn = 0; spacePressed = true; continue;
+                    fullRedraw = true; playerMoveTurn = 0; spacePressed = true; continue;
                 }
 
                 int nearExit = false;
@@ -342,7 +418,7 @@ int main() {
                         gotoxy(5, (MAP_HEIGHT / 2) + 2); printf("돌아가려면 스페이스바를 누르십시오...");
                         while (GetAsyncKeyState(VK_SPACE) & 0x8000) { Sleep(10); }
                         while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) { Sleep(30); }
-                        system("cls");
+                        fullRedraw = true;
                     }
                     else {
                         int selection = 0; bool menuActive = true;
@@ -351,7 +427,7 @@ int main() {
                         while (menuActive) {
                             gotoxy(5, MAP_HEIGHT / 2); printf("[ 열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까? ]");
                             gotoxy(7, (MAP_HEIGHT / 2) + 3);
-                            if (selection == 0) printf("-> 예      아니오"); else printf("   예   -> 아니오");
+                            if (selection == 0) printf("-> 예    아니오"); else printf("   예   -> 아니오");
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000)  selection = 0;
                             if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
                             if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
@@ -360,7 +436,8 @@ int main() {
                             else { menuSpacePressed = false; }
                             Sleep(100);
                         }
-                        system("cls"); if (gameClear) break;
+                        if (gameClear) { system("cls"); break; }
+                        else { fullRedraw = true; }
                     }
                 }
                 spacePressed = true;
@@ -368,23 +445,28 @@ int main() {
         }
         else { spacePressed = false; }
 
-        // 3. 플레이어 이동
-        if (!isHidden) {
-            playerMoveTurn++;
-            if (playerMoveTurn >= 2) {
-                nextX = px; nextY = py;
-                if (GetAsyncKeyState(VK_UP) & 0x8000)    nextY--;
-                if (GetAsyncKeyState(VK_DOWN) & 0x8000)  nextY++;
-                if (GetAsyncKeyState(VK_LEFT) & 0x8000)  nextX--;
-                if (GetAsyncKeyState(VK_RIGHT) & 0x8000) nextX++;
+        // 3. 플레이어 이동 로직 수정 (쿨다운 적용)
+        static DWORD lastMoveTime = 0; // 마지막 이동 시간 저장
 
+        // 130ms 마다 한 번씩만 입력을 받음
+        if (GetTickCount() - lastMoveTime >= 130) {
+            nextX = px; nextY = py;
+            bool isMoved = false;
+
+            if (GetAsyncKeyState(VK_UP) & 0x8000) { nextY--; isMoved = true; }
+            else if (GetAsyncKeyState(VK_DOWN) & 0x8000) { nextY++; isMoved = true; }
+            else if (GetAsyncKeyState(VK_LEFT) & 0x8000) { nextX--; isMoved = true; }
+            else if (GetAsyncKeyState(VK_RIGHT) & 0x8000) { nextX++; isMoved = true; }
+
+            // 방향키 입력이 있었을 때만 이동 가능 여부 체크
+            if (isMoved && (nextX != px || nextY != py)) {
                 if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
                     int nextTile = currentMap[nextY][nextX];
                     if (nextTile != TILE_WALL && !(nextTile >= 3 && nextTile <= 6) && nextTile != 10 && nextTile != TILE_EXIT && nextTile != TILE_DESK) {
                         px = nextX; py = nextY;
+                        lastMoveTime = GetTickCount(); // 실제 이동에 성공했을 때만 쿨다운 초기화
                     }
                 }
-                playerMoveTurn = 0;
             }
         }
 
@@ -404,7 +486,7 @@ int main() {
         // 5. 아오오니 AI 추격
         if (currentRoom != 7 && bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
-            if (monsterMoveTurn >= 4) {
+            if (monsterMoveTurn >= 12) { // 몬스터 추격 속도 하향 조절
                 monsterSubTurn++;
                 if (monsterSubTurn % 5 != 0) {
                     int targetX = mx; int targetY = my;
@@ -413,7 +495,7 @@ int main() {
 
                     if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
                         bossActive = false;
-                        bossFollowTimer = -1;   
+                        bossFollowTimer = -1;
                         mx = -10; my = -10;
                         bossDefeatedInRoom = true;
                         strcpy_s(messageLog, sizeof(messageLog), "이은석교수가 문 밖으로 완전히 물러갔습니다. 안전합니다.");
