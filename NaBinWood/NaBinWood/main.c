@@ -68,6 +68,15 @@ void clear_buffer()
     DWORD dw;
     FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', 170 * 60, coord, &dw);
     FillConsoleOutputAttribute(hBuffer[screenIndex], 7, 170 * 60, coord, &dw);
+    SetConsoleCursorPosition(hBuffer[screenIndex], coord);
+}
+
+void clear_both_buffers()
+{
+    int temp = screenIndex;
+    screenIndex = 0; clear_buffer();
+    screenIndex = 1; clear_buffer();
+    screenIndex = temp;
 }
 
 void set_color_buf(int color) {
@@ -127,9 +136,66 @@ int room_limit_height[NUM_ROOMS] = { 20,12,14,10,10, 20,12, 8,10,14,12 };
 
 int  itemRoom = 2, itemX = 18, itemY = 5;
 bool hasKey = false, isItemPicked = false;
-wchar_t messageLog[200] = L"주변을 수색하여 탈출할 단서를 찾으십시오."; 
+wchar_t messageLog[200] = L"주변을 수색하여 탈출할 단서를 찾으십시오.";
 int  lastExitX = -10, lastExitY = -10;
 bool bossDefeatedInRoom = false, isDoorUnlocked = false, isFirstRoom = true;
+
+// ============================================================
+//  몬스터 AI 길찾기 알고리즘 (BFS)
+// ============================================================
+void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, int* nx, int* ny) {
+    int dist[MAP_HEIGHT][MAP_WIDTH];
+    for (int i = 0; i < MAP_HEIGHT; i++) {
+        for (int j = 0; j < MAP_WIDTH; j++) {
+            dist[i][j] = 9999;
+        }
+    }
+
+    int qx[1000], qy[1000];
+    int head = 0, tail = 0;
+
+    // 플레이어 위치부터 역탐색 시작
+    qx[tail] = px; qy[tail] = py; tail++;
+    dist[py][px] = 0;
+
+    int dx[4] = { 0, 0, -1, 1 };
+    int dy[4] = { -1, 1, 0, 0 };
+
+    while (head < tail) {
+        int cx = qx[head]; int cy = qy[head]; head++;
+        for (int i = 0; i < 4; i++) {
+            int nx_ = cx + dx[i];
+            int ny_ = cy + dy[i];
+
+            if (nx_ >= 0 && nx_ < MAP_WIDTH && ny_ >= 0 && ny_ < MAP_HEIGHT) {
+                int t = map[ny_][nx_];
+                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK) {
+                    if (dist[ny_][nx_] == 9999) {
+                        dist[ny_][nx_] = dist[cy][cx] + 1;
+                        qx[tail] = nx_; qy[tail] = ny_; tail++;
+                    }
+                }
+            }
+        }
+    }
+
+    int minDist = 9999;
+    *nx = mx; *ny = my;
+
+    // 몬스터 상하좌우 중 거리가 가장 짧은 타일로 이동 결정
+    for (int i = 0; i < 4; i++) {
+        int tx = mx + dx[i], ty = my + dy[i];
+        if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT) {
+            int t = map[ty][tx];
+            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK) {
+                if (dist[ty][tx] < minDist) {
+                    minDist = dist[ty][tx];
+                    *nx = tx; *ny = ty;
+                }
+            }
+        }
+    }
+}
 
 // ============================================================
 //  drawSingleTile — 버퍼에 타일 1개 출력
@@ -189,7 +255,7 @@ void drawSingleTile(int room, int row, int col)
 }
 
 // ============================================================
-//  ★ 핵심: 매 프레임 백버퍼를 완전히 그리는 함수
+//  drawFullFrame
 // ============================================================
 void drawFullFrame(int room, int px, int py, int mx, int my,
     bool isHidden, bool bossActive,
@@ -197,7 +263,7 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
 {
     clear_buffer();
 
-    // ── 상단 UI 헤더 (4줄) ───────────────────────────────────
+    // ── 상단 UI 헤더 ───────────────────────────────────
     set_color_buf(COLOR_WHITE);
     move_cursor_buf(0, 0);
     print_buf(L"+-------------------------------------------------------------------------------+");
@@ -248,8 +314,8 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     print_buf(L"=================================================================================");
     move_cursor_buf(0, logY + 1);
     set_color_buf(COLOR_WHITE);
-    wchar_t padded[160]; 
-    swprintf(padded, 160, L"[알림] %-70ls", messageLog);    
+    wchar_t padded[160];
+    swprintf(padded, 160, L"[알림] %-70ls", messageLog);
     print_buf(L"%ls", padded);
     move_cursor_buf(0, logY + 2);
     set_color_buf(COLOR_YELLOW);
@@ -404,7 +470,8 @@ void draw_menu() {
 }
 
 int RenderTitle() {
-    clear_buffer(); draw_art(); draw_menu(); flip_buffer();
+    clear_both_buffers();
+    draw_art(); draw_menu(); flip_buffer();
     int ch = _getch();
     if (ch == 0 || ch == 224) {
         ch = _getch();
@@ -423,8 +490,9 @@ int RenderTitle() {
 // ============================================================
 int MainGame()
 {
-    // ─── 인트로 컷씬 ─────────────────────────────────────────
-    clear_buffer(); draw_phone(); draw_lock_screen(); flip_buffer();
+    // ─── 인트로 컷씬 시작 시 깨끗하게 ───
+    clear_both_buffers();
+    draw_phone(); draw_lock_screen(); flip_buffer();
     Sleep(1000); Beep(1200, 200);
 
     clear_buffer(); draw_phone(); draw_lock_screen();
@@ -459,10 +527,8 @@ int MainGame()
     move_cursor_buf(100, 24); print_buf(L"영찬이한테 대리출석 부탁해야겠다."); flip_buffer();
     _getch();
 
-    // ── 잔상 제거: 양쪽 버퍼 모두 클리어 ────────────────────
-    screenIndex = 0; clear_buffer();
-    screenIndex = 1; clear_buffer();
-    screenIndex = 0;
+    // 게임 시작 직전 잔상 완전 제거
+    clear_both_buffers();
 
     // ─── 변수 초기화 ─────────────────────────────────────────
     initWorldMaps(); initDoors();
@@ -473,7 +539,7 @@ int MainGame()
     int currentRoom = 0, px = 5, py = 10, mx = -10, my = -10;
     bool bossActive = false; int bossFollowTimer = 60;
     bool isHidden = false, spacePressed = false, gameOver = false, gameClear = false;
-    int monsterMoveTurn = 0, monsterSubTurn = 0;
+    int monsterMoveTurn = 0;
     int nextX, nextY, i, j;
 
     const wchar_t* roomNames[NUM_ROOMS] = {
@@ -489,7 +555,6 @@ int MainGame()
     while (!gameOver && !gameClear) {
         int (*currentMap)[MAP_WIDTH] = world_maps[currentRoom];
 
-        // ★★★ 핵심: 매 프레임 백버퍼에 전체 프레임을 완전히 그리고 flip 1회 ★★★
         drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
         flip_buffer();
 
@@ -526,8 +591,8 @@ int MainGame()
                 // 옷장
                 if (currentMap[py][px] == TILE_CLOSET) {
                     isHidden = !isHidden;
-                    wcscpy(messageLog, isHidden 
-                        ? L"옷장 속에 숨었습니다. 숨소리를 죽이십시오..." 
+                    wcscpy(messageLog, isHidden
+                        ? L"옷장 속에 숨었습니다. 숨소리를 죽이십시오..."
                         : L"옷장에서 나왔습니다.");
                 }
 
@@ -590,11 +655,19 @@ int MainGame()
 
                     COORD inputPos = { (SHORT)34, (SHORT)(startY + 2) };
                     SetConsoleCursorPosition(hBuffer[!screenIndex], inputPos);
+
+                    // ======== [수정 부분 1] 정상적인 입력 핸들 연결 및 찌꺼기 방지 ========
+                    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+                    FlushConsoleInputBuffer(hIn); // 기존 입력된 스페이스바 찌꺼기 제거
+
                     wchar_t inputBuf[16] = { 0 }; DWORD inputRead = 0;
-                    ReadConsoleW(hBuffer[!screenIndex], inputBuf, 10, &inputRead, NULL);
+                    ReadConsoleW(hIn, inputBuf, 10, &inputRead, NULL);
+                    // ======================================================================
+
                     for (int k = 0; k < (int)inputRead; k++)
                         if (inputBuf[k] == L'\r' || inputBuf[k] == L'\n') { inputBuf[k] = 0; break; }
                     int inputPw = _wtoi(inputBuf);
+
                     ci2.bVisible = FALSE;
                     SetConsoleCursorInfo(hBuffer[0], &ci2);
                     SetConsoleCursorInfo(hBuffer[1], &ci2);
@@ -705,7 +778,7 @@ int MainGame()
         else { spacePressed = false; }
 
         // ── 플레이어 이동 ────────────────────────────────────
-        if (GetTickCount() - lastMoveTime >= 130) {
+        if (GetTickCount() - lastMoveTime >= 90) {
             nextX = px; nextY = py; bool moved = false;
             if (GetAsyncKeyState(VK_UP) & 0x8000) { nextY--; moved = true; }
             else if (GetAsyncKeyState(VK_DOWN) & 0x8000) { nextY++; moved = true; }
@@ -732,38 +805,32 @@ int MainGame()
             }
         }
 
-        // ── 보스 AI ──────────────────────────────────────────
+        // ======== [수정 부분 2] 몬스터 AI (BFS 적용) 및 이동 속도 상향 ========
         if (currentRoom != 7 && bossActive && mx != -10 && my != -10) {
             monsterMoveTurn++;
-            if (monsterMoveTurn >= 12) {
-                monsterSubTurn++;
-                if (monsterSubTurn % 5 != 0) {
-                    int tx = mx, ty = my;
-                    if (mx < px) tx++; else if (mx > px) tx--;
-                    if (my < py) ty++; else if (my > py) ty--;
-                    if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
-                        bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
-                        bossDefeatedInRoom = true;
-                        wcscpy(messageLog, L"이은석 교수가 물러갔습니다. 안전합니다.");
-                    }
-                    if (mx != -10) {
-                        int mt = currentMap[ty][tx];
-                        if (mt != TILE_WALL && !(mt >= 3 && mt <= 6) && mt != 10 && mt != TILE_EXIT && mt != TILE_DESK)
-                        {
-                            mx = tx; my = ty;
-                        }
-                    }
+            if (monsterMoveTurn >= 8) { // 기존 12에서 8로 속도 향상 (숫자가 낮을수록 빠름)
+                // 옷장에 숨었는지 우선 판별
+                if (isHidden && abs(mx - px) <= 1 && abs(my - py) <= 1) {
+                    bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                    bossDefeatedInRoom = true;
+                    wcscpy(messageLog, L"이은석 교수가 물러갔습니다. 안전합니다.");
+                }
+                else if (!isHidden) {
+                    // BFS 길찾기 함수 호출
+                    int nextMx, nextMy;
+                    getMonsterNextStep(currentMap, mx, my, px, py, &nextMx, &nextMy);
+                    mx = nextMx; my = nextMy;
                 }
                 monsterMoveTurn = 0;
             }
         }
+        // ======================================================================
+
         Sleep(30);
     }
 
-    // ─── 결과 화면 ───────────────────────────────────────────
-    screenIndex = 0; clear_buffer();
-    screenIndex = 1; clear_buffer();
-    screenIndex = 0;
+    // ─── 결과 화면 출력 전 양쪽 버퍼 비우기 ───────────────────────────────────────────
+    clear_both_buffers();
     move_cursor_buf(30, 12);
     if (gameClear) {
         set_color_buf(COLOR_YELLOW); print_buf(L"[ STAGE CLEAR!! ]");
@@ -786,7 +853,7 @@ int MainGame()
 //  GameEX / Team / start_game / main
 // ============================================================
 int GameEX() {
-    clear_buffer();
+    clear_both_buffers(); // 메뉴 진입 전 깨끗하게
     move_cursor_buf(52, 8);  print_buf(L"=== 게임 설명 ===");
     move_cursor_buf(52, 10); print_buf(L"방향키: 이동");
     move_cursor_buf(52, 11); print_buf(L"Space : 문 열기 / 옷장 숨기 / 아이템 획득 / 상호작용");
@@ -801,7 +868,7 @@ int GameEX() {
 }
 
 int Team() {
-    clear_buffer();
+    clear_both_buffers(); // 메뉴 진입 전 깨끗하게
     move_cursor_buf(52, 8);  print_buf(L"=== 제작팀 소개 ===");
     move_cursor_buf(52, 10); print_buf(L"조건우  - 조장 / 게임 기획 & 통합");
     move_cursor_buf(52, 12); print_buf(L"이경빈  - 천재 / 렌더링 & 맵 설계");
@@ -811,7 +878,7 @@ int Team() {
 }
 
 int start_game() {
-    clear_buffer();
+    clear_both_buffers();
     move_cursor_buf(40, 10);
     print_buf(L"Alt + Enter 를 눌러 전체화면으로 플레이하세요.");
     flip_buffer(); Sleep(3000); return 0;
