@@ -12,7 +12,7 @@
 #include <math.h>
 //주석커밋
 #pragma warning(disable:4996)
-
+  
 #define MAP_WIDTH  40
 #define MAP_HEIGHT 20
 #define NUM_ROOMS  11
