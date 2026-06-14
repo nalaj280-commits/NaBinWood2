@@ -49,48 +49,52 @@ int    isRunning = 1;
 // ============================================================
 void init_double_buffer()
 {
-    // 커서 정보를 설정하기 위한 구조체. (크기 1, 표시 여부 FALSE: 숨김)
     CONSOLE_CURSOR_INFO ci = { 1, FALSE };
 
     for (int i = 0; i < 2; i++) {
-        // 화면에 출력할 수 있는 콘솔 스크린 버퍼를 2개 생성합니다.
         hBuffer[i] = CreateConsoleScreenBuffer(
-            GENERIC_READ | GENERIC_WRITE,       // 읽기/쓰기 권한 부여
-            FILE_SHARE_READ | FILE_SHARE_WRITE, // 다른 프로세스와 공유 가능하게 설정
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
             NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
 
-        // 생성된 버퍼에 커서 숨김 설정을 적용합니다.
         SetConsoleCursorInfo(hBuffer[i], &ci);
 
-        // 버퍼의 가로 170, 세로 60 크기를 설정합니다.
+        // 1) 창을 일단 최소 크기로 줄인다 (버퍼 리사이즈 제약 회피)
+        SMALL_RECT shrink = { 0, 0, 1, 1 };
+        SetConsoleWindowInfo(hBuffer[i], TRUE, &shrink);
+
+        // 2) 버퍼를 170x60으로 설정
         COORD sz = { 170, 60 };
         SetConsoleScreenBufferSize(hBuffer[i], sz);
 
-
+        // 3) 창을 버퍼와 동일한 170x60으로 키움 -> 스크롤바 없음
+        SMALL_RECT full = { 0, 0, 169, 59 };
+        SetConsoleWindowInfo(hBuffer[i], TRUE, &full);
     }
 }
 
 void flip_buffer()
 {
-    // 현재 그리고 있던 백그라운드 버퍼를 실제 활성화된 화면으로 설정하여 사용자에게 보여줍니다.
     SetConsoleActiveScreenBuffer(hBuffer[screenIndex]);
 
-    // 다음 번에는 다른 버퍼에 그림을 그리도록 인덱스를 반전시킵니다. (0 -> 1, 1 -> 0)
+    // 활성화 직후 커서 표시 상태가 초기화되는 경우를 대비해 다시 숨김
+    CONSOLE_CURSOR_INFO ci = { 1, FALSE };
+    SetConsoleCursorInfo(hBuffer[screenIndex], &ci);
+
     screenIndex = !screenIndex;
 }
 
 void clear_buffer()
 {
-    COORD coord = { 0, 0 }; // 화면의 좌측 상단(0,0) 좌표
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hBuffer[screenIndex], &csbi);
+
+    COORD coord = { 0, 0 };
     DWORD dw;
+    DWORD totalCells = (DWORD)csbi.dwSize.X * (DWORD)csbi.dwSize.Y;
 
-    // 현재 그림을 그릴 백그라운드 버퍼(screenIndex)의 170*60 크기만큼을 넓은 문자 공백(L' ')으로 채웁니다.
-    FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', 170 * 60, coord, &dw);
-
-    // 같은 영역의 글자 속성(색상)을 7(기본 흰색 텍스트, 검은색 배경)로 초기화합니다.
-    FillConsoleOutputAttribute(hBuffer[screenIndex], 7, 170 * 60, coord, &dw);
-
-    // 지우기 작업이 끝난 후 커서를 다시 (0,0) 위치로 돌려놓습니다.
+    FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', totalCells, coord, &dw);
+    FillConsoleOutputAttribute(hBuffer[screenIndex], 7, totalCells, coord, &dw);
     SetConsoleCursorPosition(hBuffer[screenIndex], coord);
 }
 
