@@ -356,15 +356,18 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     print_buf(L"+-------------------------------------------------------------------------------+");
     move_cursor_buf(0, 1);
     print_buf(L"| ");
+
     set_color_buf(COLOR_CYAN);
-    wchar_t tmp[80];
-    swprintf(tmp, 80, L"%-26ls", roomName);
-    print_buf(L"%ls", tmp);
+    // [수정된 부분 1] swprintf 대신 만들어두신 print_align_left 사용
+    print_align_left(roomName, 26);
+
     set_color_buf(COLOR_WHITE);
     print_buf(L" | ");
+
     set_color_buf(isHidden ? COLOR_GREEN : COLOR_RED);
-    swprintf(tmp, 80, L"%-48ls", isHidden ? L"옷장에 숨음 (SAFE)" : L"추격당하는 중...");
-    print_buf(L"%ls", tmp);
+    // [수정된 부분 2] 상태 메시지도 print_align_left 적용
+    print_align_left(isHidden ? L"옷장에 숨음 (SAFE)" : L"추격당하는 중...", 48);
+
     set_color_buf(COLOR_WHITE);
     print_buf(L" |");
     move_cursor_buf(0, 2);
@@ -380,8 +383,9 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     if (hasFinalKey) wcscat(invStr, L"[최종 탈출 열쇠] ");
     if (wcslen(invStr) == 0) wcscpy(invStr, L"없음");
 
-    swprintf(tmp, 80, L"%-77ls", invStr);
-    print_buf(L"%ls", tmp);
+    // [수정된 부분 3] 인벤토리 내역도 print_align_left 적용
+    print_align_left(invStr, 77);
+
     set_color_buf(COLOR_WHITE);
     print_buf(L" |");
 
