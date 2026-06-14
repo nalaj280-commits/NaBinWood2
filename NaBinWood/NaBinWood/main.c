@@ -895,7 +895,7 @@ int MainGame()
                             clear_both_buffers();
                             draw_cut_art();
                             set_color_buf(COLOR_YELLOW);
-                            move_cursor_buf(70, 45); // 아트 높이에 따라 y좌표(45)는 적절히 조절해 주십시오.
+                            move_cursor_buf(100, 40); // 아트 높이에 따라 y좌표(45)는 적절히 조절해 주십시오.
                             print_buf(L"[스페이스바를 눌러 계속...]");
                             flip_buffer();
 
