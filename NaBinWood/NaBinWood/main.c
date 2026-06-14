@@ -559,6 +559,27 @@ void draw_original_art() {
     set_color_buf(COLOR_WHITE);
 }
 
+void draw_rule_art() {
+    FILE* fp = fopen("game_rule.txt", "rb");
+    if (!fp) return;
+    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
+    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
+        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
+        move_cursor_buf(0, line);
+        wchar_t* p = wideBuf;
+        set_color_buf(COLOR_WHITE);
+        while (*p) {
+            DWORD w;
+            WriteConsoleW(hBuffer[screenIndex], p, 1, &w, NULL);
+            p++;
+        }
+        line++;
+    }
+    fclose(fp);
+    set_color_buf(COLOR_WHITE);
+}
+
+
 void draw_menu() {
     if (menu == 1) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
     move_cursor_buf(122, 23); print_buf(L"1. 게임 시작");
@@ -1340,23 +1361,18 @@ int MainGame()
 // ============================================================
 int GameEX() {
     clear_both_buffers();
-    move_cursor_buf(52, 8);  print_buf(L"=== 게임 설명 ===");
-    move_cursor_buf(52, 10); print_buf(L"방향키: 이동");
-    move_cursor_buf(52, 11); print_buf(L"Space : 문 열기 / 옷장 숨기 / 아이템 획득 / 상호작용");
-    move_cursor_buf(52, 12); print_buf(L"ESC   : 게임 종료 (타이틀로)");
-    move_cursor_buf(52, 14); print_buf(L"목표: 2층 창고 책상(T)에서 비밀번호 단서를 찾고");
-    move_cursor_buf(52, 15); print_buf(L"      이은석 교수실 비밀문을 열어 [마스터 열쇠]를 획득.");
-    move_cursor_buf(52, 16); print_buf(L"      1층 교수실 탈출구(目)로 탈출하면 클리어!");
-    move_cursor_buf(52, 18); print_buf(L"기호: P=플레이어  M=이은석교수  目=문  H=옷장");
-    move_cursor_buf(52, 19); print_buf(L"      S=계단  T=책상  *=아이템  #=외벽  X=내벽");
-    move_cursor_buf(52, 22); set_color_buf(COLOR_YELLOW); print_buf(L"아무 키나 누르면 타이틀로 돌아갑니다.");
-    set_color_buf(COLOR_WHITE); flip_buffer();
+    draw_rule_art();
+    set_color_buf(COLOR_YELLOW);
+    move_cursor_buf(25, 30); print_buf(L"아무 키나 누르면 타이틀로 돌아갑니다.");
+    set_color_buf(COLOR_WHITE);
+    flip_buffer();
 
     flush_keyboard_buffer();
     _getch();
 
     return 0;
 }
+
 
 int Team() {
     clear_both_buffers();
