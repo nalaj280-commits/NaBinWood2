@@ -25,5 +25,6 @@
     <Text Include="art_lab.txt" />
     <Text Include="art_cut.txt" />
     <Text Include="game_rule.txt" />
+    <Text Include="art_ending.txt" />
   </ItemGroup>
 </Project>

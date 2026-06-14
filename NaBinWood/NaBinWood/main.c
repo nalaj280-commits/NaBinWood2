@@ -602,6 +602,25 @@ void draw_original_art() {
     fclose(fp);
     set_color_buf(COLOR_WHITE);
 }
+void draw_ending_art() {
+    FILE* fp = fopen("art_ending.txt", "rb");
+    if (!fp) return;
+    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
+    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
+        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
+        move_cursor_buf(0, line);
+        wchar_t* p = wideBuf;
+        set_color_buf(COLOR_WHITE); // 게임 오버 느낌을 위해 붉은색 지정
+        while (*p) {
+            DWORD w;
+            WriteConsoleW(hBuffer[screenIndex], p, 1, &w, NULL);
+            p++;
+        }
+        line++;
+    }
+    fclose(fp);
+    set_color_buf(COLOR_WHITE);
+}
 void draw_cut_art() {
     FILE* fp = fopen("art_cut.txt", "rb");
     if (!fp) return;
@@ -1046,7 +1065,6 @@ int MainGame()
 
                     if (isHidden) {
                         wcscpy(messageLog, L"옷장 속에 숨었습니다. 숨소리를 죽이십시오...");
-
                         // 만약 교수가 추격 중(bossActive)일 때 숨었다면 즉시 이벤트 발생
                         if (bossActive) {
                             // 숨은 상태의 UI를 화면에 먼저 한 번 그려줍니다.
@@ -1392,15 +1410,18 @@ int MainGame()
         }
         else { spacePressed = false; }
 
-        if (GetTickCount() - lastMoveTime >= 90) {
+        // 옷장에 숨어있지 않을 때(!isHidden)만 방향키 입력을 받도록 수정
+        if (!isHidden && GetTickCount() - lastMoveTime >= 90) {
             nextX = px; nextY = py; bool moved = false;
             if (GetAsyncKeyState(VK_UP) & 0x8000) { nextY--; moved = true; }
             else if (GetAsyncKeyState(VK_DOWN) & 0x8000) { nextY++; moved = true; }
             else if (GetAsyncKeyState(VK_LEFT) & 0x8000) { nextX--; moved = true; }
             else if (GetAsyncKeyState(VK_RIGHT) & 0x8000) { nextX++; moved = true; }
+
             if (moved && (nextX != px || nextY != py)) {
                 if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
                     int nt = currentMap[nextY][nextX];
+                    // 갈 수 있는 길인지 검사
                     if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR && nt != TILE_FIGURE && nt != TILE_PURIFIER && nt != TILE_BLACKBOARD)
                     {
                         px = nextX; py = nextY; lastMoveTime = GetTickCount();
@@ -1440,12 +1461,65 @@ int MainGame()
     clear_both_buffers();
 
     if (gameClear) {
-        move_cursor_buf(30, 12);
-        set_color_buf(COLOR_YELLOW); print_buf(L"[ STAGE CLEAR!! ]");
-        move_cursor_buf(10, 14); set_color_buf(COLOR_WHITE);
-        print_buf(L"비밀번호를 풀고 탈출에 성공했습니다! 여자친구한테 연락하세요!");
-        move_cursor_buf(25, 17); set_color_buf(COLOR_DARKGRAY);
-        print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
+        // 1. 엔딩 아트 출력 후 정적 (여운의 시작)
+        clear_buffer();
+        draw_ending_art();
+        flip_buffer();
+        Sleep(2000); // 2초간 묵직하게 대기
+
+        // 2. 첫 번째 대사 출력
+        clear_buffer();
+        draw_ending_art();
+        move_cursor_buf(70, 25);
+        set_color_buf(COLOR_WHITE);
+        print_buf(L"무사히 탈출했다...");
+        flip_buffer();
+        Sleep(1500); // 1.5초 대기
+
+        // 3. 두 번째 대사 출력
+        clear_buffer();
+        draw_ending_art();
+        move_cursor_buf(70, 25);
+        set_color_buf(COLOR_WHITE);
+        print_buf(L"무사히 탈출했다...");
+
+        move_cursor_buf(70, 27);
+        print_buf(L"여친과 즐거운 시간...");
+        flip_buffer();
+        Sleep(1500); // 1.5초 대기
+
+        // 4. END 로고 출력
+        clear_buffer();
+        draw_ending_art();
+        move_cursor_buf(70, 25);
+        set_color_buf(COLOR_WHITE);
+        print_buf(L"무사히 탈출했다...");
+
+        move_cursor_buf(70, 27);
+        print_buf(L"여친과 즐거운 시간...");
+
+        move_cursor_buf(75, 31); // 대사 아래쪽으로 Y좌표 수정
+        set_color_buf(COLOR_YELLOW);
+        print_buf(L"[ E N D ]");
+        flip_buffer();
+        Sleep(4000); // 엔딩 쾅 찍고 2초 대기
+
+        // 5. 마지막 복귀 안내 문구 출력
+        clear_buffer();
+        draw_ending_art();
+        move_cursor_buf(70, 25);
+        set_color_buf(COLOR_WHITE);
+        print_buf(L"무사히 탈출했다...");
+
+        move_cursor_buf(70, 27);
+        print_buf(L"여친과 즐거운 시간...");
+
+        move_cursor_buf(75, 31);
+        set_color_buf(COLOR_YELLOW);
+        print_buf(L"[ E N D ]");
+
+
+        flip_buffer();
     }
     else {
         draw_original_art(); // 교수가 잡았을 때 아스키 아트 출력
@@ -1464,13 +1538,13 @@ int MainGame()
     flush_keyboard_buffer();
     _getch();
 
-    menu = 1; return 0;
+    menu = 1;
+    return 0;
 }
-
 // ============================================================
 //  GameEX / Team / start_game / main
 // ============================================================
-int GameEX() {
+    int GameEX() {
     clear_both_buffers();
     draw_rule_art();
     set_color_buf(COLOR_YELLOW);
