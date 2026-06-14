@@ -539,7 +539,25 @@ void draw_lab_art() {
     fclose(fp);
     set_color_buf(COLOR_WHITE);
 }
-
+void draw_original_art() {
+    FILE* fp = fopen("art_original.txt", "rb");
+    if (!fp) return;
+    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
+    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
+        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
+        move_cursor_buf(0, line);
+        wchar_t* p = wideBuf;
+        set_color_buf(COLOR_RED); // 게임 오버 느낌을 위해 붉은색 지정
+        while (*p) {
+            DWORD w;
+            WriteConsoleW(hBuffer[screenIndex], p, 1, &w, NULL);
+            p++;
+        }
+        line++;
+    }
+    fclose(fp);
+    set_color_buf(COLOR_WHITE);
+}
 
 void draw_menu() {
     if (menu == 1) set_color_buf(COLOR_YELLOW); else set_color_buf(COLOR_WHITE);
@@ -1288,19 +1306,27 @@ int MainGame()
     }
 
     clear_both_buffers();
-    move_cursor_buf(30, 12);
+
     if (gameClear) {
+        move_cursor_buf(30, 12);
         set_color_buf(COLOR_YELLOW); print_buf(L"[ STAGE CLEAR!! ]");
         move_cursor_buf(10, 14); set_color_buf(COLOR_WHITE);
         print_buf(L"비밀번호를 풀고 탈출에 성공했습니다! 여자친구한테 연락하세요!");
+        move_cursor_buf(25, 17); set_color_buf(COLOR_DARKGRAY);
+        print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
     }
     else {
-        set_color_buf(COLOR_RED); print_buf(L"[ GAME OVER ]");
-        move_cursor_buf(20, 14); set_color_buf(COLOR_WHITE);
+        draw_original_art(); // 교수가 잡았을 때 아스키 아트 출력
+
+        // 아스키 아트 아래쪽에 텍스트가 뜨도록 좌표 조정
+        move_cursor_buf(75, 45); set_color_buf(COLOR_RED);
+        print_buf(L"[ GAME OVER ]");
+        move_cursor_buf(70, 47); set_color_buf(COLOR_WHITE);
         print_buf(L"이은석 교수에게 잡혔습니다...");
+        move_cursor_buf(65, 50); set_color_buf(COLOR_DARKGRAY);
+        print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
     }
-    move_cursor_buf(25, 17); set_color_buf(COLOR_DARKGRAY);
-    print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
+
     flip_buffer();
 
     flush_keyboard_buffer();
