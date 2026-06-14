@@ -24,7 +24,8 @@
 #define TILE_STAIRS 8
 #define TILE_CLOSET 15
 #define TILE_MONITOR 16 
-#define TILE_PHOTO  17 // 교수님의 과거 사진 오브젝트
+#define TILE_FIGURE 17 // 교수님의 한정판 애니 피규어가 숨겨진 액자
+#define TILE_DROP_ZONE 18 // 피규어를 두는 특정 구역 추가
 
 #define COLOR_BLUE     9
 #define COLOR_GREEN    10
@@ -154,8 +155,8 @@ bool hasStairsKey = false, isStairsKeyPicked = false;
 int itemScrewdriverX = 2, itemScrewdriverY = 8;
 bool hasScrewdriver = false, isScrewdriverPicked = false;
 
-// 과거 사진 & 최종 탈출 열쇠 (추가됨)
-bool hasPhoto = false, isPhotoPicked = false, isPhotoPlaced = false;
+// 한정판 피규어 & 최종 탈출 열쇠
+bool hasFigure = false, isFigurePicked = false, isFigurePlaced = false;
 bool hasFinalKey = false, isFinalKeyPicked = false;
 int finalKeyX = -10, finalKeyY = -10;
 
@@ -191,7 +192,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
 
             if (nx_ >= 0 && nx_ < MAP_WIDTH && ny_ >= 0 && ny_ < MAP_HEIGHT) {
                 int t = map[ny_][nx_];
-                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_PHOTO) {
+                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE) {
                     if (dist[ny_][nx_] == 9999) {
                         dist[ny_][nx_] = dist[cy][cx] + 1;
                         qx[tail] = nx_; qy[tail] = ny_; tail++;
@@ -208,7 +209,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
         int tx = mx + dx[i], ty = my + dy[i];
         if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT) {
             int t = map[ty][tx];
-            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_PHOTO) {
+            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE) {
                 if (dist[ty][tx] < minDist) {
                     minDist = dist[ty][tx];
                     *nx = tx; *ny = ty;
@@ -254,8 +255,11 @@ void drawSingleTile(int room, int row, int col)
     else if (tile == TILE_MONITOR) {
         set_color_buf(COLOR_CYAN); print_buf(L"▣ "); set_color_buf(COLOR_WHITE);
     }
-    else if (tile == TILE_PHOTO) {
-        set_color_buf(COLOR_YELLOW); print_buf(L"▤ "); set_color_buf(COLOR_WHITE); // 과거 사진
+    else if (tile == TILE_FIGURE) {
+        set_color_buf(COLOR_YELLOW); print_buf(L"▤ "); set_color_buf(COLOR_WHITE); // 액자
+    }
+    else if (tile == TILE_DROP_ZONE) {
+        set_color_buf(COLOR_PURPLE); print_buf(L"◈ "); set_color_buf(COLOR_WHITE); // 피규어 두는 곳
     }
     else if (tile == TILE_WALL) {
         set_color_buf(COLOR_DARKGRAY);
@@ -318,7 +322,7 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     if (hasExitRoomKey) wcscat(invStr, L"[탈출구 열쇠] ");
     if (hasStairsKey) wcscat(invStr, L"[계단실 열쇠] ");
     if (hasScrewdriver) wcscat(invStr, L"[드라이버] ");
-    if (hasPhoto) wcscat(invStr, L"[과거 사진] ");
+    if (hasFigure) wcscat(invStr, L"[애니 피규어] ");
     if (hasFinalKey) wcscat(invStr, L"[최종 탈출 열쇠] ");
     if (wcslen(invStr) == 0) wcscpy(invStr, L"없음");
 
@@ -419,6 +423,9 @@ void initWorldMaps()
     world_maps[0][0][5] = 3; world_maps[0][0][20] = 4;
     world_maps[0][MAP_HEIGHT - 1][10] = 5; world_maps[0][MAP_HEIGHT - 1][30] = 6;
 
+    // [추가] 1층 복도(Room 0) 중앙 피규어 두는 곳
+    world_maps[0][10][20] = TILE_DROP_ZONE;
+
     for (i = 3; i <= 8; i++) for (j = 5; j <= 15; j++) world_maps[1][i][j] = TILE_WALL;
     world_maps[1][11][10] = 3; world_maps[1][1][2] = TILE_STAIRS;
 
@@ -438,9 +445,9 @@ void initWorldMaps()
 
     world_maps[6][0][10] = 4; world_maps[6][5][19] = 10;
 
-    // 비밀공간(Room 7) 위쪽 벽면에 교수님 과거 사진 배치
+    // 비밀공간(Room 7) 위쪽 벽면에 교수님의 애니 피규어가 숨겨진 액자 배치
     world_maps[7][5][0] = 10;
-    world_maps[7][1][8] = TILE_PHOTO;
+    world_maps[7][1][8] = TILE_FIGURE;
 
     world_maps[8][0][10] = 6; world_maps[8][4][10] = TILE_DESK;
 
@@ -641,8 +648,7 @@ int MainGame()
     hasExitRoomKey = false; isExitRoomKeyPicked = false;
     bool isExitRoomUnlocked = false;
 
-    // 추가된 변수 초기화
-    hasPhoto = false; isPhotoPicked = false; isPhotoPlaced = false;
+    hasFigure = false; isFigurePicked = false; isFigurePlaced = false;
     hasFinalKey = false; isFinalKeyPicked = false;
     finalKeyX = -10; finalKeyY = -10;
 
@@ -689,35 +695,43 @@ int MainGame()
                     spacePressed = true; continue;
                 }
 
-                // [추가] 1층 복도(Room 0) 왼쪽 벽에 사진 걸기 & 컷신 발생
-                if (currentRoom == 0 && hasPhoto && !isPhotoPlaced && px <= 2 && py >= 1 && py <= MAP_HEIGHT - 2) {
-                    isPhotoPlaced = true;
-                    hasPhoto = false;
-                    currentMap[py][0] = TILE_PHOTO; // 벽에 사진 부착
+                // [추가] 1층 복도(Room 0) 피규어 두는 곳 상호작용
+                if (currentRoom == 0 && !isFigurePlaced && abs(px - 20) <= 1 && abs(py - 10) <= 1) {
+                    if (currentMap[10][20] == TILE_DROP_ZONE) {
+                        if (!hasFigure) {
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"나", L"여기에 무언가 시선을 끌 만한 것을 두면 좋을 것 같다.");
+                        }
+                        else {
+                            isFigurePlaced = true;
+                            hasFigure = false;
+                            currentMap[10][20] = TILE_EMPTY; // 맵에서 피규어 두는 곳 완벽히 삭제
 
-                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"나", L"사진을 1층 복도 벽에 걸었다.");
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"나", L"이곳에 [애니 피규어]를 내려놓았다.");
 
-                    // 교수 컷신 등장
-                    bossActive = true;
-                    mx = 2; my = py;
-                    drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
-                    flip_buffer();
-                    Sleep(500);
+                            // 교수 컷신
+                            bossActive = true;
+                            mx = 20; my = 10;
+                            drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                            flip_buffer();
+                            Sleep(500);
 
-                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"이은석 교수", L"아니... 저, 저 사진은...!!!");
-                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"시스템", L"이은석 교수가 과거 사진을 보고 충격을 받아 주저앉아 오열합니다.");
-                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"시스템", L"교수가 바닥에 무언가를 떨어뜨리고 도망쳤습니다!");
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"이은석 교수", L"아, 아니...! 내 초특급 한정판 마법소녀 피규어가 왜 여기에!!!");
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"시스템", L"이은석 교수가 피규어를 지키기 위해 몸을 날리다 바닥에 무언가를 떨어뜨렸습니다.");
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"시스템", L"교수가 피규어를 소중하게 품에 안고 황급히 도망칩니다...");
 
-                    bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
-                    bossDefeatedInRoom = true;
+                            bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                            bossDefeatedInRoom = true;
 
-                    finalKeyX = 2; finalKeyY = py; // 열쇠 드롭 위치
-
-                    spacePressed = true; continue;
+                            // 열쇠 드롭
+                            finalKeyX = 20; finalKeyY = 10;
+                        }
+                        spacePressed = true; continue;
+                    }
                 }
 
                 // 탈출구(Room 4) 드라이버 획득
@@ -728,25 +742,27 @@ int MainGame()
                     spacePressed = true; continue;
                 }
 
-                // 비밀의방(Room 7) 교수님 과거 사진 상호작용 및 획득
-                if (currentRoom == 7 && abs(px - 8) <= 1 && abs(py - 1) <= 1 && !isPhotoPicked) {
+                // 비밀의방(Room 7) 숨겨진 피규어 상호작용 및 획득
+                if (currentRoom == 7 && abs(px - 8) <= 1 && abs(py - 1) <= 1 && !isFigurePicked) {
                     if (!hasScrewdriver) {
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                            L"나", L"벽에 낡은 [교수님의 과거 사진]이 단단히 걸려있다.");
+                            L"나", L"벽에 수상할 정도로 낡은 [풍경화 액자]가 단단히 걸려있다.");
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                             L"나", L"네 모서리가 나사로 고정되어 있어 [드라이버]가 없으면 뗄 수 없다...");
                     }
                     else {
-                        hasPhoto = true;
-                        isPhotoPicked = true;
-                        currentMap[1][8] = TILE_WALL; // 벽에서 사진 제거
+                        hasFigure = true;
+                        isFigurePicked = true;
+                        currentMap[1][8] = TILE_WALL; // 벽에서 액자 제거
 
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                            L"시스템", L"[드라이버]를 사용해 나사를 모두 풀었습니다.");
+                            L"시스템", L"[드라이버]를 사용해 나사를 모두 풀고 액자를 떼어냈습니다.");
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                            L"시스템", L"[과거 사진] 아이템을 획득했습니다!");
+                            L"나", L"액자 뒤에... 숨겨진 금고가 있어! 안에는...");
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                            L"나", L"사진을 이용해서 교수를 유인해야겠어.");
+                            L"시스템", L"금고 안에서 [한정판 애니 피규어]를 획득했습니다!");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"나", L"교수님의 은밀한 취향이... 좋아, 이 피규어로 교수를 유인해야겠어.");
                     }
                     spacePressed = true; continue;
                 }
@@ -826,7 +842,7 @@ int MainGame()
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                         L"낡은 일지", L"'우연히 교수님의 은밀한 취향이 담긴 물건을 봐버렸다.'");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"낡은 일지", L"'이건 세상에 공개되어서는 안되는 물건이야...'");
+                        L"낡은 일지", L"'그 피규어는 세상에 공개되어서는 안 되는 한정판이야...'");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                         L"낡은 일지", L"'교수님이 나를 부르신다..'");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
@@ -1144,7 +1160,7 @@ int MainGame()
                         if (currentMap[cy][cx] == TILE_EXIT) nearExit = true;
                 }
 
-                // [수정] 탈출구 방(Room 4) 최종 탈출 해금!
+                // 탈출구 방(Room 4) 최종 탈출 해금!
                 if (currentRoom == 4 && nearExit) {
                     if (!hasFinalKey) {
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
@@ -1196,7 +1212,7 @@ int MainGame()
             if (moved && (nextX != px || nextY != py)) {
                 if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
                     int nt = currentMap[nextY][nextX];
-                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR && nt != TILE_PHOTO)
+                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR && nt != TILE_FIGURE && nt != TILE_DROP_ZONE)
                     {
                         px = nextX; py = nextY; lastMoveTime = GetTickCount();
                     }
@@ -1237,7 +1253,7 @@ int MainGame()
     if (gameClear) {
         set_color_buf(COLOR_YELLOW); print_buf(L"[ STAGE CLEAR!! ]");
         move_cursor_buf(10, 14); set_color_buf(COLOR_WHITE);
-        print_buf(L"비밀번호를 풀고 탈출에 성공했습니다! 영찬이한테 연락하세요!");
+        print_buf(L"비밀번호를 풀고 탈출에 성공했습니다! 여자친구한테 연락하세요!");
     }
     else {
         set_color_buf(COLOR_RED); print_buf(L"[ GAME OVER ]");
