@@ -249,7 +249,7 @@ void drawSingleTile(int room, int row, int col)
         set_color_buf(COLOR_BROWN);  print_buf(L"目 "); set_color_buf(COLOR_WHITE);
     }
     else if (tile == TILE_STAIRS) {
-        set_color_buf(COLOR_PURPLE); print_buf(L"↕ "); set_color_buf(COLOR_WHITE);
+        set_color_buf(COLOR_PURPLE); print_buf(L"S "); set_color_buf(COLOR_WHITE);
     }
     else if (tile == TILE_DESK) {
         set_color_buf(COLOR_CYAN); print_buf(L"✉ "); set_color_buf(COLOR_WHITE);
@@ -558,26 +558,6 @@ void draw_original_art() {
     fclose(fp);
     set_color_buf(COLOR_WHITE);
 }
-void draw_cut_art() {
-    FILE* fp = fopen("art_cut.txt", "rb");
-    if (!fp) return;
-    char utf8Buf[4096]; wchar_t wideBuf[4096]; int line = 0;
-    while (fgets(utf8Buf, sizeof(utf8Buf), fp)) {
-        MultiByteToWideChar(CP_UTF8, 0, utf8Buf, -1, wideBuf, 4096);
-        move_cursor_buf(0, line);
-        wchar_t* p = wideBuf;
-        set_color_buf(COLOR_DARKGRAY);
-        while (*p) {
-            DWORD w;
-            WriteConsoleW(hBuffer[screenIndex], p, 1, &w, NULL);
-            p++;
-        }
-        line++;
-    }
-    fclose(fp);
-    set_color_buf(COLOR_WHITE);
-}
-
 
 void draw_rule_art() {
     FILE* fp = fopen("game_rule.txt", "rb");
@@ -816,22 +796,6 @@ int MainGame()
 
                             showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                                 L"이은석 교수", L"아, 아니...! 내 초특급 한정판 마법소녀 피규어가 왜 여기에!!!");
-
-                            // ──────────────────────────────────────────────────────────
-                            // 🔥 [추가된 부분] 컷신 아스키 아트 출력 연출
-                            // ──────────────────────────────────────────────────────────
-                            clear_both_buffers();
-                            draw_cut_art();
-                            set_color_buf(COLOR_YELLOW);
-                            move_cursor_buf(70, 45); // 아트 높이에 따라 y좌표(45)는 적절히 조절해 주십시오.
-                            print_buf(L"[스페이스바를 눌러 계속...]");
-                            flip_buffer();
-
-                            // 스페이스바를 누를 때까지 대기
-                            while (!(GetAsyncKeyState(VK_SPACE) & 0x8000)) Sleep(30);
-                            while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
-                            // ──────────────────────────────────────────────────────────
-
                             showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                                 L"시스템", L"이은석 교수가 피규어를 지키기 위해 몸을 날리다 바닥에 무언가를 떨어뜨렸습니다.");
                             showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
@@ -1048,8 +1012,7 @@ int MainGame()
                     print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
                     move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 도어락");
                     move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"비밀번호 4자리를 입력하세요: ");
-                    move_cursor_buf(4, startY + 3); set_color_buf(COLOR_DARKGRAY);  print_buf(L"-비밀번호 입력후 enter-");
-                    set_color_buf(COLOR_WHITE);
+
                     CONSOLE_CURSOR_INFO ci2 = { 1, TRUE };
                     SetConsoleCursorInfo(hBuffer[screenIndex], &ci2);
                     flip_buffer();

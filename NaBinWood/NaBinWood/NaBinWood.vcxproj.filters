@@ -23,10 +23,6 @@
     <Text Include="art_original.txt" />
     <Text Include="art_title.txt" />
     <Text Include="art_lab.txt" />
-<<<<<<< HEAD
     <Text Include="game_rule.txt" />
-=======
-    <Text Include="art_cut.txt" />
->>>>>>> 4071b4478fd666beda55e041c110e6ac247721f5
   </ItemGroup>
 </Project>
