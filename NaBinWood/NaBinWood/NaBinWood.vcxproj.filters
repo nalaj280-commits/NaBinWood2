@@ -23,5 +23,6 @@
     <Text Include="art_original.txt" />
     <Text Include="art_title.txt" />
     <Text Include="art_lab.txt" />
+    <Text Include="art_cut.txt" />
   </ItemGroup>
 </Project>
