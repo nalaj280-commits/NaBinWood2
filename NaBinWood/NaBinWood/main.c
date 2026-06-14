@@ -49,13 +49,20 @@ int    isRunning = 1;
 // ============================================================
 void init_double_buffer()
 {
+    // 커서 정보를 설정하기 위한 구조체. (크기 1, 표시 여부 FALSE: 숨김)
     CONSOLE_CURSOR_INFO ci = { 1, FALSE };
+
     for (int i = 0; i < 2; i++) {
+        // 화면에 출력할 수 있는 콘솔 스크린 버퍼를 2개 생성합니다.
         hBuffer[i] = CreateConsoleScreenBuffer(
-            GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            GENERIC_READ | GENERIC_WRITE,       // 읽기/쓰기 권한 부여
+            FILE_SHARE_READ | FILE_SHARE_WRITE, // 다른 프로세스와 공유 가능하게 설정
             NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
+
+        // 생성된 버퍼에 커서 숨김 설정을 적용합니다.
         SetConsoleCursorInfo(hBuffer[i], &ci);
+
+        // 버퍼의 가로 170, 세로 60 크기를 설정합니다.
         COORD sz = { 170, 60 };
         SetConsoleScreenBufferSize(hBuffer[i], sz);
     }
@@ -63,77 +70,114 @@ void init_double_buffer()
 
 void flip_buffer()
 {
+    // 현재 그리고 있던 백그라운드 버퍼를 실제 활성화된 화면으로 설정하여 사용자에게 보여줍니다.
     SetConsoleActiveScreenBuffer(hBuffer[screenIndex]);
+
+    // 다음 번에는 다른 버퍼에 그림을 그리도록 인덱스를 반전시킵니다. (0 -> 1, 1 -> 0)
     screenIndex = !screenIndex;
 }
 
 void clear_buffer()
 {
-    COORD coord = { 0, 0 };
+    COORD coord = { 0, 0 }; // 화면의 좌측 상단(0,0) 좌표
     DWORD dw;
+
+    // 현재 그림을 그릴 백그라운드 버퍼(screenIndex)의 170*60 크기만큼을 넓은 문자 공백(L' ')으로 채웁니다.
     FillConsoleOutputCharacterW(hBuffer[screenIndex], L' ', 170 * 60, coord, &dw);
+
+    // 같은 영역의 글자 속성(색상)을 7(기본 흰색 텍스트, 검은색 배경)로 초기화합니다.
     FillConsoleOutputAttribute(hBuffer[screenIndex], 7, 170 * 60, coord, &dw);
+
+    // 지우기 작업이 끝난 후 커서를 다시 (0,0) 위치로 돌려놓습니다.
     SetConsoleCursorPosition(hBuffer[screenIndex], coord);
 }
 
 void clear_both_buffers()
 {
-    int temp = screenIndex;
-    screenIndex = 0; clear_buffer();
-    screenIndex = 1; clear_buffer();
-    screenIndex = temp;
+    int temp = screenIndex; // 원래 인덱스를 임시로 저장해 둡니다.
+
+    screenIndex = 0; clear_buffer(); // 0번 버퍼 비우기
+    screenIndex = 1; clear_buffer(); // 1번 버퍼 비우기
+
+    screenIndex = temp; // 작업이 끝난 후 원래 그리던 버퍼 인덱스로 복구합니다.
 }
 
-void flush_keyboard_buffer() {
+void flush_keyboard_buffer()
+{
+    // 키보드 버퍼에 읽지 않은 키 입력이 남아있는 동안 반복합니다.
     while (_kbhit()) {
-        _getch();
+        _getch(); // 남아있는 키보드 입력값을 허공으로 날려버립니다.
     }
 }
 
-void set_color_buf(int color) {
+void set_color_buf(int color)
+{
+    // 백그라운드 버퍼에 앞으로 출력할 텍스트의 속성(색상)을 지정합니다.
     SetConsoleTextAttribute(hBuffer[screenIndex], color);
 }
 
-void move_cursor_buf(int x, int y) {
+void move_cursor_buf(int x, int y)
+{
+    // 인자로 받은 x, y 좌표를 COORD 구조체로 만들어 백그라운드 버퍼의 커서 위치를 이동시킵니다.
     COORD pos = { (SHORT)x, (SHORT)y };
     SetConsoleCursorPosition(hBuffer[screenIndex], pos);
 }
 
 void print_buf(const wchar_t* fmt, ...)
 {
-    wchar_t buf[2048];
+    wchar_t buf[2048]; // 조합된 문자열을 저장할 넉넉한 크기의 임시 버퍼입니다.
+
+    // 가변 인자(..., %d, %s 등)를 처리하여 하나의 완성된 문자열로 만듭니다.
     va_list args;
     va_start(args, fmt);
-    vswprintf(buf, sizeof(buf) / sizeof(wchar_t), fmt, args);
+    vswprintf(buf, sizeof(buf) / sizeof(wchar_t), fmt, args); // 유니코드 기반 포맷팅
     va_end(args);
+
     DWORD written;
+    // 완성된 문자열(buf)을 현재 백그라운드 버퍼(hBuffer[screenIndex])에 출력(기록)합니다.
     WriteConsoleW(hBuffer[screenIndex], buf, lstrlenW(buf), &written, NULL);
 }
 
+// 문자열이 콘솔 화면에서 차지하는 실제 너비(칸 수)를 계산하는 함수입니다.
 int get_width(const wchar_t* str)
 {
-    int w = 0;
+    int w = 0; // 전체 너비를 저장할 변수
+
+    // 문자열의 끝(NULL 문자)을 만날 때까지 한 글자씩 검사하며 반복합니다.
     while (*str) {
+        // 현재 문자가 한글 유니코드 범위(가~힣: 0xAC00 ~ 0xD7A3)에 포함되는지 확인합니다.
+        // 한글이면 2칸, 아니면(영어, 숫자, 기호 등) 1칸을 너비(w)에 더해줍니다.
         w += (*str >= 0xAC00 && *str <= 0xD7A3) ? 2 : 1;
-        str++;
+
+        str++; // 다음 글자로 포인터를 이동합니다.
     }
-    return w;
+    return w; // 계산된 총 너비를 반환합니다.
 }
 
+// 지정된 전체 너비(total_width) 안에서 텍스트를 왼쪽으로 정렬하여 출력하는 함수입니다.
 void print_align_left(const wchar_t* text, int total_width)
 {
+    // 한글과 영어를 고려하여 텍스트의 실제 화면 너비를 구합니다.
     int w = get_width(text);
+
+    // 텍스트를 백그라운드 버퍼에 먼저 출력합니다.
     print_buf(L"%ls", text);
-    for (int i = w; i < total_width; i++) print_buf(L" ");
+
+    // 지정된 전체 넓이에서 글자가 차지한 너비를 뺀 나머지 빈 공간만큼 반복합니다.
+    for (int i = w; i < total_width; i++)
+        print_buf(L" "); // 빈 공간을 공백 문자로 채워 넣어 오른쪽 정렬 틀을 맞춰줍니다.
 }
 
+// 콘솔 창의 깜빡이는 커서를 보이거나 숨기는 함수입니다.
 void set_cursor_visible(bool visible)
 {
+    // 커서 두께(1)와 표시 여부(visible이 참이면 TRUE, 거짓이면 FALSE)를 구조체로 설정합니다.
     CONSOLE_CURSOR_INFO ci = { 1, visible ? TRUE : FALSE };
+
+    // 더블 버퍼링에 사용되는 0번 버퍼와 1번 버퍼 양쪽 모두에 커서 설정을 똑같이 적용합니다.
     SetConsoleCursorInfo(hBuffer[0], &ci);
     SetConsoleCursorInfo(hBuffer[1], &ci);
 }
-
 // ============================================================
 //  맵 데이터 및 아이템 전역 변수
 // ============================================================
@@ -996,11 +1040,38 @@ int MainGame()
                     spacePressed = true; continue;
                 }
 
+                // [수정된 부분] 옷장 상호작용
                 if (currentMap[py][px] == TILE_CLOSET) {
                     isHidden = !isHidden;
-                    wcscpy(messageLog, isHidden
-                        ? L"옷장 속에 숨었습니다. 숨소리를 죽이십시오..."
-                        : L"옷장에서 나왔습니다.");
+
+                    if (isHidden) {
+                        wcscpy(messageLog, L"옷장 속에 숨었습니다. 숨소리를 죽이십시오...");
+
+                        // 만약 교수가 추격 중(bossActive)일 때 숨었다면 즉시 이벤트 발생
+                        if (bossActive) {
+                            // 숨은 상태의 UI를 화면에 먼저 한 번 그려줍니다.
+                            drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                            flip_buffer();
+
+                            // 형님 요청대로 슬립(1.5초) 대기
+                            Sleep(1500);
+
+                            // 교수 대사 팝업
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"이은석 교수", L"이자식 어디간거야?");
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"이은석 교수", L"잡히면 가만두지 않을테다!!!");
+
+                            // 교수 퇴장 및 상태 초기화
+                            bossActive = false; bossFollowTimer = -1; mx = -10; my = -10;
+                            bossDefeatedInRoom = true;
+                            wcscpy(messageLog, L"이은석 교수가 포기하고 돌아갔습니다. 안전합니다.");
+                        }
+                    }
+                    else {
+                        wcscpy(messageLog, L"옷장에서 나왔습니다.");
+                    }
+                    spacePressed = true; continue;
                 }
 
                 if (currentRoom == 1 && abs(px - 2) + abs(py - 1) <= 1) {
