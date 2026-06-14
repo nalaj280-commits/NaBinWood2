@@ -1416,10 +1416,10 @@ int GameEX() {
 
 int Team() {
     clear_both_buffers();
-    move_cursor_buf(52, 8);  print_buf(L"=== 제작팀 소개 ===");
-    move_cursor_buf(52, 10); print_buf(L"조건우  - 조장 / 게임 기획 & 통합");
-    move_cursor_buf(52, 12); print_buf(L"이경빈  - 천재 / 렌더링 & 맵 설계");
-    move_cursor_buf(52, 14); print_buf(L"정나라  - 천재 / 스토리 & UI 디자인");
+    move_cursor_buf(52, 8);  print_buf(L"=================== 제작팀 소개 ===================");
+    move_cursor_buf(52, 10); print_buf(L"  조건우  - 조장 / PROJECT 설계 총괄 및 일정 제어");
+    move_cursor_buf(52, 12); print_buf(L"   이경빈  - 조원 / PPT 제작 및 발표 대본 작성");
+    move_cursor_buf(52, 14); print_buf(L"   정나라  - 조원 / ASCII ART 제작 및 UI 디자인");
     move_cursor_buf(52, 18); set_color_buf(COLOR_YELLOW); print_buf(L"아무 키나 누르면 타이틀로 돌아갑니다.");
     set_color_buf(COLOR_WHITE); flip_buffer();
 
