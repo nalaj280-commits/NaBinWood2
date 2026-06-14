@@ -903,11 +903,14 @@ int MainGame()
                     move_cursor_buf(0, startY + 1); print_buf(L"┃                                                                               ┃");
                     move_cursor_buf(0, startY + 2); print_buf(L"┃                                                                               ┃");
                     move_cursor_buf(0, startY + 3); print_buf(L"┃                                                                               ┃");
-                    move_cursor_buf(0, startY + 4);
+                    move_cursor_buf(0, startY + 4); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 5);
                     print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
-                    move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 켜져 있는 모니터 (▣)");
-                    move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"비밀번호를 입력하세요: ");
-                    move_cursor_buf(4, startY + 3); set_color_buf(COLOR_DARKGRAY);  print_buf(L"-비밀번호 입력후 enter-");
+                    move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 켜져 있는 모니터 (▣ )");
+                    move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"암호를 입력하세요: ");
+                    move_cursor_buf(4, startY + 3); set_color_buf(COLOR_DARKGRAY);  print_buf(L"-암호 입력후 enter-");
+                    move_cursor_buf(4, startY + 4); set_color_buf(COLOR_CYAN);  print_buf(L"-힌트: 교수님-");
+
                     set_color_buf(COLOR_WHITE);
 
                     CONSOLE_CURSOR_INFO ci2 = { 1, TRUE };
