@@ -12,7 +12,7 @@
 #include <math.h>
 //주석커밋
 #pragma warning(disable:4996)
-  
+
 #define MAP_WIDTH  40
 #define MAP_HEIGHT 20
 #define NUM_ROOMS  11
@@ -65,6 +65,8 @@ void init_double_buffer()
         // 버퍼의 가로 170, 세로 60 크기를 설정합니다.
         COORD sz = { 170, 60 };
         SetConsoleScreenBufferSize(hBuffer[i], sz);
+
+
     }
 }
 
@@ -361,7 +363,7 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     set_color_buf(COLOR_WHITE);
     print_buf(L" | ");
     set_color_buf(isHidden ? COLOR_GREEN : COLOR_RED);
-    swprintf(tmp, 80, L"%-31ls", isHidden ? L"옷장에 숨음 (SAFE)" : L"추격당하는 중...");
+    swprintf(tmp, 80, L"%-48ls", isHidden ? L"옷장에 숨음 (SAFE)" : L"추격당하는 중...");
     print_buf(L"%ls", tmp);
     set_color_buf(COLOR_WHITE);
     print_buf(L" |");
@@ -378,7 +380,7 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     if (hasFinalKey) wcscat(invStr, L"[최종 탈출 열쇠] ");
     if (wcslen(invStr) == 0) wcscpy(invStr, L"없음");
 
-    swprintf(tmp, 80, L"%-68ls", invStr);
+    swprintf(tmp, 80, L"%-77ls", invStr);
     print_buf(L"%ls", tmp);
     set_color_buf(COLOR_WHITE);
     print_buf(L" |");
@@ -407,7 +409,7 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     move_cursor_buf(0, logY + 1);
     set_color_buf(COLOR_WHITE);
     wchar_t padded[160];
-    swprintf(padded, 160, L"[알림] %-70ls", messageLog);
+    swprintf(padded, 160, L"[알림] %-74ls", messageLog);
     print_buf(L"%ls", padded);
     move_cursor_buf(0, logY + 2);
     set_color_buf(COLOR_YELLOW);
@@ -438,8 +440,7 @@ void showDialog_on_frame(int room, int px, int py, int mx, int my,
     print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
     move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ %ls", speaker);
     move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);
-    wchar_t padded[128]; swprintf(padded, 128, L"%-70ls", text);
-    print_buf(L"%ls", padded);
+    print_align_left(text, 70);
     move_cursor_buf(66, startY + 3); set_color_buf(COLOR_GREEN); print_buf(L"(Space) ▼");
 
     flip_buffer();
