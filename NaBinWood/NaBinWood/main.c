@@ -23,6 +23,7 @@
 #define TILE_EXIT   7
 #define TILE_STAIRS 8
 #define TILE_CLOSET 15
+#define TILE_MONITOR 16 // 모니터 오브젝트 추가
 
 #define COLOR_BLUE     9
 #define COLOR_GREEN    10
@@ -79,7 +80,6 @@ void clear_both_buffers()
     screenIndex = temp;
 }
 
-// 키보드 연타 시 쌓인 버퍼 찌꺼기를 모두 비워주는 함수
 void flush_keyboard_buffer() {
     while (_kbhit()) {
         _getch();
@@ -131,7 +131,7 @@ void set_cursor_visible(bool visible)
 }
 
 // ============================================================
-//  맵 데이터
+//  맵 데이터 및 아이템 전역 변수
 // ============================================================
 int world_maps[NUM_ROOMS][MAP_HEIGHT][MAP_WIDTH];
 
@@ -141,8 +141,14 @@ DoorInfo doors[4];
 int room_limit_width[NUM_ROOMS] = { 40,20,24,20,20, 40,20,16,20,24,20 };
 int room_limit_height[NUM_ROOMS] = { 20,12,14,10,10, 20,12, 8,10,14,12 };
 
-int  itemRoom = 2, itemX = 18, itemY = 5;
+// 마스터 열쇠 (기존)
+int  itemRoom = 7, itemX = 8, itemY = 5;
 bool hasKey = false, isItemPicked = false;
+
+// 계단실 열쇠 (추가됨)
+int itemStairsX = 12, itemStairsY = 6;
+bool hasStairsKey = false, isStairsKeyPicked = false;
+
 wchar_t messageLog[200] = L"주변을 수색하여 탈출할 단서를 찾으십시오.";
 int  lastExitX = -10, lastExitY = -10;
 bool bossDefeatedInRoom = false, isDoorUnlocked = false, isFirstRoom = true;
@@ -175,7 +181,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
 
             if (nx_ >= 0 && nx_ < MAP_WIDTH && ny_ >= 0 && ny_ < MAP_HEIGHT) {
                 int t = map[ny_][nx_];
-                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK) {
+                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR) {
                     if (dist[ny_][nx_] == 9999) {
                         dist[ny_][nx_] = dist[cy][cx] + 1;
                         qx[tail] = nx_; qy[tail] = ny_; tail++;
@@ -192,7 +198,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
         int tx = mx + dx[i], ty = my + dy[i];
         if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT) {
             int t = map[ty][tx];
-            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK) {
+            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR) {
                 if (dist[ty][tx] < minDist) {
                     minDist = dist[ty][tx];
                     *nx = tx; *ny = ty;
@@ -217,6 +223,9 @@ void drawSingleTile(int room, int row, int col)
     else if (room == itemRoom && !isItemPicked && row == itemY && col == itemX) {
         set_color_buf(COLOR_YELLOW);  print_buf(L"⚷ "); set_color_buf(COLOR_WHITE);
     }
+    else if (room == 2 && !isStairsKeyPicked && row == itemStairsY && col == itemStairsX) {
+        set_color_buf(COLOR_GREEN);  print_buf(L"⚷ "); set_color_buf(COLOR_WHITE);
+    }
     else if ((tile >= 3 && tile <= 6) || tile == 10 || tile == TILE_EXIT) {
         set_color_buf(COLOR_BROWN);  print_buf(L"目 "); set_color_buf(COLOR_WHITE);
     }
@@ -225,6 +234,9 @@ void drawSingleTile(int room, int row, int col)
     }
     else if (tile == TILE_DESK) {
         set_color_buf(COLOR_CYAN); print_buf(L"✉ "); set_color_buf(COLOR_WHITE);
+    }
+    else if (tile == TILE_MONITOR) {
+        set_color_buf(COLOR_CYAN); print_buf(L"▣ "); set_color_buf(COLOR_WHITE);
     }
     else if (tile == TILE_WALL) {
         set_color_buf(COLOR_DARKGRAY);
@@ -280,11 +292,18 @@ void drawFullFrame(int room, int px, int py, int mx, int my,
     print_buf(L" |");
     move_cursor_buf(0, 2);
     print_buf(L"| ");
+
     set_color_buf(COLOR_YELLOW);
-    swprintf(tmp, 80, L"%-68ls", hasKey ? L"[교수실 열쇠]" : L"없음");
+    wchar_t invStr[100] = L"없음";
+    if (hasKey && hasStairsKey) wcscpy(invStr, L"[계단실 열쇠], [마스터 열쇠]");
+    else if (hasStairsKey) wcscpy(invStr, L"[계단실 열쇠]");
+    else if (hasKey) wcscpy(invStr, L"[마스터 열쇠]");
+
+    swprintf(tmp, 80, L"%-68ls", invStr);
     print_buf(L"%ls", tmp);
     set_color_buf(COLOR_WHITE);
     print_buf(L" |");
+
     move_cursor_buf(0, 3);
     print_buf(L"+-------------------------------------------------------------------------------+");
 
@@ -386,6 +405,7 @@ void initWorldMaps()
     for (j = 4; j <= 15; j++) world_maps[3][6][j] = TILE_WALL;
     world_maps[3][2][2] = TILE_CLOSET; world_maps[3][2][3] = TILE_CLOSET;
     world_maps[3][0][10] = 5;
+    world_maps[3][4][15] = TILE_DESK;
 
     for (i = 4; i <= 8; i++) world_maps[4][i][8] = TILE_WALL;
     world_maps[4][5][19] = TILE_EXIT; world_maps[4][0][10] = 6;
@@ -399,6 +419,8 @@ void initWorldMaps()
 
     for (j = 4; j <= 20; j += 4) { world_maps[9][4][j] = TILE_WALL; world_maps[9][8][j] = TILE_WALL; }
     world_maps[9][13][12] = 5;
+    // [추가] 2층 강의실(Room 9) 모니터 배치
+    world_maps[9][2][10] = TILE_MONITOR;
 
     world_maps[10][11][10] = 3; world_maps[10][1][2] = TILE_STAIRS;
 }
@@ -484,19 +506,18 @@ void draw_menu() {
     set_color_buf(7);
 }
 
-// ======== [수정 부분 1] 타이틀 깜빡임 및 연타 입력 방지 수정 ========
+// ======== 타이틀 화면 ========
 int RenderTitle() {
-    clear_buffer(); // 화면 전체를 지우지 않고 백버퍼만 지워 깜빡임 완벽 제거
+    clear_buffer();
     draw_art(); draw_menu(); flip_buffer();
 
-    // 메뉴 진입 루프 안에서는 블로킹 함수인 _getch()만 대기시켜 방향키 딜레이를 없앰
     int ch = _getch();
     if (ch == 0 || ch == 224) {
         ch = _getch();
         if (ch == 72 && menu > 1) menu--;
         if (ch == 80 && menu < 4) menu++;
     }
-    else if (ch == 32) { // 스페이스바를 눌러 화면이 전환될 때만 연타 버퍼를 비워줌
+    else if (ch == 32) {
         if (menu == 1) { flush_keyboard_buffer(); return 2; }
         if (menu == 2) { flush_keyboard_buffer(); return 3; }
         if (menu == 3) { flush_keyboard_buffer(); return 4; }
@@ -504,7 +525,6 @@ int RenderTitle() {
     }
     return 0;
 }
-// ======================================================================
 
 // ============================================================
 //  MainGame
@@ -548,22 +568,17 @@ int MainGame()
     move_cursor_buf(100, 40); print_buf(L"[스페이스바 누르면 진행]"); flip_buffer();
     _getch();
 
-    // ── ★ 실험실 아스키아트 컷씬 (스마트폰 씬과 동일한 Sleep 연출) ──
+    // ── ★ 실험실 아스키아트 컷씬 ──
     clear_both_buffers();
-
-    // 1단계: 아트만 먼저 등장
-    draw_lab_art();
-    flip_buffer();
+    draw_lab_art(); flip_buffer();
     Sleep(1500); Beep(800, 150);
 
-    // 2단계: 첫 번째 혼잣말 등장
     clear_buffer(); draw_lab_art();
     set_color_buf(COLOR_WHITE);
     move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
     flip_buffer();
     Sleep(3000); Beep(1200, 200);
 
-    // 3단계: 두 번째 혼잣말 등장
     clear_buffer(); draw_lab_art();
     set_color_buf(COLOR_WHITE);
     move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
@@ -571,7 +586,6 @@ int MainGame()
     flip_buffer();
     Sleep(3000); Beep(1200, 200);
 
-    // 4단계: 세 번째 혼잣말 등장
     clear_buffer(); draw_lab_art();
     set_color_buf(COLOR_WHITE);
     move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
@@ -580,7 +594,6 @@ int MainGame()
     flip_buffer();
     Sleep(3000); Beep(1200, 200);
 
-    // 5단계: 진행 안내 추가
     clear_buffer(); draw_lab_art();
     set_color_buf(COLOR_WHITE);
     move_cursor_buf(100, 20); print_buf(L"- 실습실 -");
@@ -596,6 +609,9 @@ int MainGame()
     // ─── 변수 초기화 ─────────────────────────────────────────
     initWorldMaps(); initDoors();
     hasKey = false; isItemPicked = false; isDoorUnlocked = false;
+    hasStairsKey = false; isStairsKeyPicked = false;
+    bool isStairsUnlocked = false;
+
     isFirstRoom = true; bossDefeatedInRoom = false;
     lastExitX = -10; lastExitY = -10;
     wcscpy(messageLog, L"주변을 수색하여 탈출할 단서를 찾으십시오.");
@@ -629,13 +645,95 @@ int MainGame()
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
 
+                // 2층 강의실(Room 9) 모니터 상호작용
+                if (currentRoom == 9 && abs(px - 10) <= 1 && abs(py - 2) <= 1) {
+                    int startY = MAP_HEIGHT + 5;
+                    while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
+
+                    drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                    set_color_buf(COLOR_WHITE);
+                    move_cursor_buf(0, startY);
+                    print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                    move_cursor_buf(0, startY + 1); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 2); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 3); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, startY + 4);
+                    print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                    move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 켜져 있는 모니터 (▣)");
+                    move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"비밀번호를 입력하세요: ");
+
+                    CONSOLE_CURSOR_INFO ci2 = { 1, TRUE };
+                    SetConsoleCursorInfo(hBuffer[screenIndex], &ci2);
+                    flip_buffer();
+
+                    COORD inputPos = { (SHORT)28, (SHORT)(startY + 2) };
+                    SetConsoleCursorPosition(hBuffer[!screenIndex], inputPos);
+
+                    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+                    FlushConsoleInputBuffer(hIn);
+
+                    wchar_t inputBuf[32] = { 0 }; DWORD inputRead = 0;
+                    ReadConsoleW(hIn, inputBuf, 20, &inputRead, NULL);
+
+                    for (int k = 0; k < (int)inputRead; k++)
+                        if (inputBuf[k] == L'\r' || inputBuf[k] == L'\n') { inputBuf[k] = 0; break; }
+
+                    ci2.bVisible = FALSE;
+                    SetConsoleCursorInfo(hBuffer[0], &ci2);
+                    SetConsoleCursorInfo(hBuffer[1], &ci2);
+
+                    if (wcscmp(inputBuf, L"이빨빠진은석") == 0 || wcscmp(inputBuf, L"3") == 0) {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"모니터", L"[접근 허가]");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"모니터", L"[족보]에 접속합니다");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"모니터", L"(로딩중.....)");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"모니터", L"비밀번호 마지막자리는 4...");
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"나", L"마지막 자리가 4라... 잊지 말고 기억해두자.");
+                    }
+                    else {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"모니터", L"[경고] 비밀번호가 틀렸습니다.");
+                    }
+                    spacePressed = true; continue;
+                }
+
+                if (currentRoom == 3 && abs(px - 15) <= 1 && abs(py - 4) <= 1) {
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"낡은 책상 위에 [어느 대학원생의 일지]가 놓여있다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"낡은 일지", L"'우연히 교수님의 과거사진을 봐버렸다.'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"낡은 일지", L"'이건 세상에 공개되어서는 안되는 물건이야...'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"낡은 일지", L"'교수님이 나를 부르신다..'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"낡은 일지", L"'교수실에 비밀공간이 있다 비밀번호는 1.....'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"글씨가 다급하게 휘갈겨져 있어 뒷부분은 알아볼 수 없다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"비밀번호의 시작이 '1'이군...");
+
+                    spacePressed = true; continue;
+                }
+
                 if (currentRoom == 8 && abs(px - 10) <= 1 && abs(py - 4) <= 1) {
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                         L"나", L"책상 서랍에서 쪽지를 발견했다.");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"쪽지", L"'비밀번호는 [1111]이다.'");
+                        L"쪽지", L"'이은석에서 이를 빼면?'");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
-                        L"나", L"비밀번호 단서를 확인했다. 잊지 말자.");
+                        L"쪽지", L"1. 은석,   2. -2은석");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"쪽지", L"'정답은??'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"쪽지", L"'3. 이빨빠진은석'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"'이게 무슨 헛소리야...'");
+
                     spacePressed = true; continue;
                 }
 
@@ -646,6 +744,14 @@ int MainGame()
                         L"시스템", L"강의실 바닥에서 반짝이는 것을 발견했습니다.");
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                         L"시스템", L"[교수실 마스터 열쇠]를 획득했습니다!");
+                    spacePressed = true; continue;
+                }
+
+                if (currentRoom == 2 && !isStairsKeyPicked &&
+                    abs(px - itemStairsX) <= 1 && abs(py - itemStairsY) <= 1) {
+                    hasStairsKey = true; isStairsKeyPicked = true;
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"시스템", L"강의실 책상 위에서 [계단실 열쇠]를 획득했습니다!");
                     spacePressed = true; continue;
                 }
 
@@ -745,6 +851,98 @@ int MainGame()
                     spacePressed = true; continue;
                 }
 
+                if (currentRoom == 0 && targetDoorTile == 4) {
+                    int sY = MAP_HEIGHT + 5;
+                    while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
+
+                    drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                    set_color_buf(COLOR_WHITE);
+                    move_cursor_buf(0, sY);
+                    print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                    move_cursor_buf(0, sY + 1); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, sY + 2); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, sY + 3); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, sY + 4); print_buf(L"┃                                                                               ┃");
+                    move_cursor_buf(0, sY + 5); print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+
+                    move_cursor_buf(4, sY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 문이 잠겨있다: i++ 의 의미는?");
+                    move_cursor_buf(4, sY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"1. 1만큼 증가");
+                    move_cursor_buf(4, sY + 3); print_buf(L"2. i만큼 증가   3. 1만큼 곱하기");
+                    move_cursor_buf(66, sY + 4); set_color_buf(COLOR_GREEN); print_buf(L"(숫자 1~3 입력)");
+                    flip_buffer();
+
+                    flush_keyboard_buffer();
+                    int answer = 0;
+
+                    while (1) {
+                        int ch = _getch();
+                        if (ch >= '1' && ch <= '3') {
+                            answer = ch - '0';
+                            break;
+                        }
+                    }
+
+                    if (answer == 1) {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"정답입니다! 1층 강의실 문이 열립니다.");
+                    }
+                    else {
+                        showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                            L"시스템", L"오답입니다. 문이 굳게 닫혀 열리지 않습니다.");
+                        spacePressed = true;
+                        continue;
+                    }
+                }
+
+                if (currentRoom == 0 && targetDoorTile == 3) {
+                    if (!isStairsUnlocked) {
+                        if (!hasStairsKey) {
+                            showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                L"시스템", L"[!] 1층 계단실 문이 굳게 잠겨있습니다. [계단실 열쇠]가 필요합니다.");
+                            spacePressed = true; continue;
+                        }
+                        else {
+                            int selection = 0; bool mActive = true, mSp = false;
+                            int sY = MAP_HEIGHT + 5;
+                            while (GetAsyncKeyState(VK_SPACE) & 0x8000) Sleep(10);
+                            while (mActive) {
+                                drawFullFrame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom]);
+                                set_color_buf(COLOR_WHITE);
+                                move_cursor_buf(0, sY);
+                                print_buf(L"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓");
+                                move_cursor_buf(0, sY + 1); print_buf(L"┃                                                                               ┃");
+                                move_cursor_buf(0, sY + 2); print_buf(L"┃                                                                               ┃");
+                                move_cursor_buf(0, sY + 3); print_buf(L"┃                                                                               ┃");
+                                move_cursor_buf(0, sY + 4);
+                                print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
+                                move_cursor_buf(4, sY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 계단실 문");
+                                move_cursor_buf(4, sY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"[계단실 열쇠]를 사용하여 문을 여시겠습니까?");
+                                move_cursor_buf(6, sY + 3);
+                                if (selection == 0) print_buf(L"▶ 예        아니오");
+                                else                print_buf(L"   예        ▶ 아니오");
+                                flip_buffer();
+
+                                if (GetAsyncKeyState(VK_LEFT) & 0x8000) selection = 0;
+                                if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
+                                if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+                                    if (!mSp) { mActive = false; mSp = true; }
+                                }
+                                else { mSp = false; }
+                                Sleep(80);
+                            }
+
+                            if (selection == 0) {
+                                isStairsUnlocked = true;
+                                showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                                    L"시스템", L"철컥! [계단실 열쇠]를 사용하여 문을 열었습니다.");
+                            }
+                            else {
+                                spacePressed = true; continue;
+                            }
+                        }
+                    }
+                }
+
                 if ((targetDoorTile >= 3 && targetDoorTile <= 6) || targetDoorTile == 10) {
                     bossActive = false; bossFollowTimer = 25;
                     bossDefeatedInRoom = false; isFirstRoom = false;
@@ -811,7 +1009,7 @@ int MainGame()
                             move_cursor_buf(4, sY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"열쇠를 사용해 학교 건물 밖으로 탈출하시겠습니까?");
                             move_cursor_buf(6, sY + 3);
                             if (selection == 0) print_buf(L"▶ 예        아니오");
-                            else                print_buf(L"   예      ▶ 아니오");
+                            else                print_buf(L"   예        ▶ 아니오");
                             flip_buffer();
                             if (GetAsyncKeyState(VK_LEFT) & 0x8000) selection = 0;
                             if (GetAsyncKeyState(VK_RIGHT) & 0x8000) selection = 1;
@@ -838,7 +1036,7 @@ int MainGame()
             if (moved && (nextX != px || nextY != py)) {
                 if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
                     int nt = currentMap[nextY][nextX];
-                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK)
+                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR)
                     {
                         px = nextX; py = nextY; lastMoveTime = GetTickCount();
                     }
@@ -890,7 +1088,7 @@ int MainGame()
     print_buf(L"아무 키나 누르면 메인 화면으로 돌아갑니다.");
     flip_buffer();
 
-    flush_keyboard_buffer(); // 게임 오버/클리어 화면에서 쌓인 연타 비우기
+    flush_keyboard_buffer();
     _getch();
 
     menu = 1; return 0;
