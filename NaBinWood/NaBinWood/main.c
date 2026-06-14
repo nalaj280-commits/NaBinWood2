@@ -26,6 +26,8 @@
 #define TILE_MONITOR 16 
 #define TILE_FIGURE 17 // 교수님의 한정판 애니 피규어가 숨겨진 액자
 #define TILE_DROP_ZONE 18 // 피규어를 두는 특정 구역 추가
+#define TILE_PURIFIER 19 // 2층 복도 정수기 추가
+#define TILE_BLACKBOARD 20 // 2층 계단실 칠판 추가
 
 #define COLOR_BLUE     9
 #define COLOR_GREEN    10
@@ -192,7 +194,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
 
             if (nx_ >= 0 && nx_ < MAP_WIDTH && ny_ >= 0 && ny_ < MAP_HEIGHT) {
                 int t = map[ny_][nx_];
-                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE) {
+                if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE && t != TILE_PURIFIER && t != TILE_BLACKBOARD) {
                     if (dist[ny_][nx_] == 9999) {
                         dist[ny_][nx_] = dist[cy][cx] + 1;
                         qx[tail] = nx_; qy[tail] = ny_; tail++;
@@ -209,7 +211,7 @@ void getMonsterNextStep(int map[][MAP_WIDTH], int mx, int my, int px, int py, in
         int tx = mx + dx[i], ty = my + dy[i];
         if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT) {
             int t = map[ty][tx];
-            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE) {
+            if (t != TILE_WALL && !(t >= 3 && t <= 6) && t != 10 && t != TILE_EXIT && t != TILE_DESK && t != TILE_MONITOR && t != TILE_FIGURE && t != TILE_PURIFIER && t != TILE_BLACKBOARD) {
                 if (dist[ty][tx] < minDist) {
                     minDist = dist[ty][tx];
                     *nx = tx; *ny = ty;
@@ -256,10 +258,16 @@ void drawSingleTile(int room, int row, int col)
         set_color_buf(COLOR_CYAN); print_buf(L"▣ "); set_color_buf(COLOR_WHITE);
     }
     else if (tile == TILE_FIGURE) {
-        set_color_buf(COLOR_YELLOW); print_buf(L"▤ "); set_color_buf(COLOR_WHITE); // 액자
+        set_color_buf(COLOR_YELLOW); print_buf(L"♙ "); set_color_buf(COLOR_WHITE); // 피규어 액자
     }
     else if (tile == TILE_DROP_ZONE) {
         set_color_buf(COLOR_PURPLE); print_buf(L"◈ "); set_color_buf(COLOR_WHITE); // 피규어 두는 곳
+    }
+    else if (tile == TILE_PURIFIER) {
+        set_color_buf(COLOR_BLUE); print_buf(L"♒ "); set_color_buf(COLOR_WHITE); // 정수기 (파란색으로 변경)
+    }
+    else if (tile == TILE_BLACKBOARD) {
+        set_color_buf(COLOR_GREEN); print_buf(L"▒ "); set_color_buf(COLOR_WHITE); // 칠판
     }
     else if (tile == TILE_WALL) {
         set_color_buf(COLOR_DARKGRAY);
@@ -423,7 +431,7 @@ void initWorldMaps()
     world_maps[0][0][5] = 3; world_maps[0][0][20] = 4;
     world_maps[0][MAP_HEIGHT - 1][10] = 5; world_maps[0][MAP_HEIGHT - 1][30] = 6;
 
-    // [추가] 1층 복도(Room 0) 중앙 피규어 두는 곳
+    // 1층 복도(Room 0) 중앙 피규어 두는 곳
     world_maps[0][10][20] = TILE_DROP_ZONE;
 
     for (i = 3; i <= 8; i++) for (j = 5; j <= 15; j++) world_maps[1][i][j] = TILE_WALL;
@@ -443,6 +451,9 @@ void initWorldMaps()
     world_maps[5][0][5] = 3; world_maps[5][0][25] = 5;
     world_maps[5][MAP_HEIGHT - 1][5] = 4; world_maps[5][MAP_HEIGHT - 1][30] = 6;
 
+    // 2층 복도(Room 5) 정수기 배치
+    world_maps[5][2][20] = TILE_PURIFIER;
+
     world_maps[6][0][10] = 4; world_maps[6][5][19] = 10;
 
     // 비밀공간(Room 7) 위쪽 벽면에 교수님의 애니 피규어가 숨겨진 액자 배치
@@ -456,6 +467,9 @@ void initWorldMaps()
     world_maps[9][2][10] = TILE_MONITOR;
 
     world_maps[10][11][10] = 3; world_maps[10][1][2] = TILE_STAIRS;
+
+    // [수정] 2층 계단실(Room 10) 칠판을 위쪽 벽면으로 배치 (y좌표 1)
+    world_maps[10][5][18] = TILE_BLACKBOARD;
 }
 
 // ============================================================
@@ -685,7 +699,31 @@ int MainGame()
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spacePressed) {
 
-                // [추가] 1층 복도(Room 0) 최종 열쇠 획득
+                // 2층 계단실(Room 10) 칠판 상호작용 (오른쪽 벽면 x=18, y=5)
+                if (currentRoom == 10 && abs(px - 18) <= 1 && abs(py - 5) <= 1) {
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"시스템", L"칠판에 무언가 적혀있다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"칠판", L"*0**");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"두 번째 자리가 0이라는 뜻인가...?");
+                    spacePressed = true; continue;
+                }
+
+                // 2층 복도(Room 5) 정수기 상호작용
+                if (currentRoom == 5 && abs(px - 20) <= 1 && abs(py - 2) <= 1) {
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"목마른데 물이나 마셔야겠다.");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"어 물컵안에 쪽지가 있잖아?");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"쪽지", L"'3 == 0 true'");
+                    showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
+                        L"나", L"이게 뭔뜻이지?");
+                    spacePressed = true; continue;
+                }
+
+                // 1층 복도(Room 0) 최종 열쇠 획득
                 if (currentRoom == 0 && !isFinalKeyPicked && finalKeyX != -10 && abs(px - finalKeyX) <= 1 && abs(py - finalKeyY) <= 1) {
                     hasFinalKey = true; isFinalKeyPicked = true;
                     showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
@@ -695,7 +733,7 @@ int MainGame()
                     spacePressed = true; continue;
                 }
 
-                // [추가] 1층 복도(Room 0) 피규어 두는 곳 상호작용
+                // 1층 복도(Room 0) 피규어 두는 곳 상호작용
                 if (currentRoom == 0 && !isFigurePlaced && abs(px - 20) <= 1 && abs(py - 10) <= 1) {
                     if (currentMap[10][20] == TILE_DROP_ZONE) {
                         if (!hasFigure) {
@@ -957,6 +995,7 @@ int MainGame()
                     SetConsoleCursorInfo(hBuffer[0], &ci2);
                     SetConsoleCursorInfo(hBuffer[1], &ci2);
 
+                    // TODO: 나중에 비밀번호 변경 필요 (현재 1004)
                     if (inputPw == 1004) {
                         showDialog_on_frame(currentRoom, px, py, mx, my, isHidden, bossActive, roomNames[currentRoom],
                             L"시스템", L"철컥! 비밀번호가 일치하여 비밀 장치 문이 열렸습니다.");
@@ -1212,7 +1251,7 @@ int MainGame()
             if (moved && (nextX != px || nextY != py)) {
                 if (nextX >= 0 && nextX < MAP_WIDTH && nextY >= 0 && nextY < MAP_HEIGHT) {
                     int nt = currentMap[nextY][nextX];
-                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR && nt != TILE_FIGURE && nt != TILE_DROP_ZONE)
+                    if (nt != TILE_WALL && !(nt >= 3 && nt <= 6) && nt != 10 && nt != TILE_EXIT && nt != TILE_DESK && nt != TILE_MONITOR && nt != TILE_FIGURE && nt != TILE_PURIFIER && nt != TILE_BLACKBOARD)
                     {
                         px = nextX; py = nextY; lastMoveTime = GetTickCount();
                     }
