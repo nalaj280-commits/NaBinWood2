@@ -193,6 +193,7 @@ int Team()
 
 int main()
 {
+	system("chcp 65001");
 	OPEN();
 
 
