@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <math.h>
-
+//주석커밋
 #pragma warning(disable:4996)
 
 #define MAP_WIDTH  40
