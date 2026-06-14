@@ -3346,8 +3346,7 @@ void showDialog_on_frame(int room, int px, int py, int mx, int my,
     print_buf(L"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
     move_cursor_buf(4, startY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ %ls", speaker);
     move_cursor_buf(4, startY + 2); set_color_buf(COLOR_WHITE);
-    wchar_t padded[128]; swprintf(padded, 128, L"%-70ls", text);
-    print_buf(L"%ls", padded);
+    print_buf(L"%ls", text); // 공간 채우기 제거하고 텍스트만 출력
     move_cursor_buf(66, startY + 3); set_color_buf(COLOR_GREEN); print_buf(L"(Space) ▼");
 
     flip_buffer();
@@ -3438,7 +3437,7 @@ void draw_lock_screen() {
     move_cursor_buf(56, 6);  print_buf(L"6월 22일 (월)");
     move_cursor_buf(47, 9);  print_buf(L" __   ___        ______ ______");
     move_cursor_buf(47, 10); print_buf(L"/_ | |__ \\   _  | ____| | ____|");
-    move_cursor_buf(47, 11); print_buf(L" | |   ) |  (_) | |__   | |__");
+    move_cursor_buf(47, 11); print_buf(L" | |    ) |  (_) | |__   | |__");
     move_cursor_buf(47, 12); print_buf(L" | |  / /       |___ \\  |___ \\ ");
     move_cursor_buf(47, 13); print_buf(L" | | / /_    _   ___) |  ___) |");
     move_cursor_buf(47, 14); print_buf(L" |_| |____| (_) |____/  |____/");
@@ -3708,7 +3707,7 @@ int MainGame()
     const wchar_t* roomNames[NUM_ROOMS] = {
         L"1층 중앙 복도",        L"1층 계단실",         L"1층 강의실",
         L"학생 과방",            L"1층 교수실(탈출구)",  L"2층 복도",
-        L"이은석 교수실",        L"[비밀공간]",          L"2층 창고",
+        L"이은석 교수실",        L"[비밀공간]",         L"2층 창고",
         L"2층 강의실",           L"2층 계단실"
     };
 
@@ -4108,7 +4107,7 @@ int MainGame()
                     move_cursor_buf(4, sY + 1); set_color_buf(COLOR_YELLOW); print_buf(L"▶ 문이 잠겨있다: i++ 의 의미는?");
                     move_cursor_buf(4, sY + 2); set_color_buf(COLOR_WHITE);  print_buf(L"1. 1만큼 증가");
                     move_cursor_buf(4, sY + 3); print_buf(L"2. i만큼 증가   3. 1만큼 곱하기");
-                    move_cursor_buf(66, sY + 4); set_color_buf(COLOR_GREEN); print_buf(L"(숫자 1~3 입력)");
+                    move_cursor_buf(55, sY + 4); set_color_buf(COLOR_GREEN); print_buf(L"(숫자 1~3 입력)");
                     flip_buffer();
 
                     flush_keyboard_buffer();
@@ -4452,7 +4451,7 @@ int MainGame()
 // ============================================================
 //  GameEX / Team / start_game / main
 // ============================================================
-    int GameEX() {
+int GameEX() {
     clear_both_buffers();
     draw_rule_art();
     set_color_buf(COLOR_YELLOW);
