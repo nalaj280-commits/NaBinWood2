@@ -549,7 +549,7 @@ void draw_notification(const wchar_t* name, const wchar_t* msg) {
     int x = 45, y = 32;
     for (int i = 0; i < 4; i++) { move_cursor_buf(x, y + i); print_buf(L"                                "); }
     move_cursor_buf(x, y);     print_buf(L"┌──────────────────────────────┐");
-    move_cursor_buf(x, y + 1); print_buf(L"│ ♥ "); print_align_left(name, 24); print_buf(L"  │");
+    move_cursor_buf(x, y + 1); print_buf(L"│ ♥ "); print_align_left(name, 24); print_buf(L"   │");
     move_cursor_buf(x, y + 2); print_buf(L"│ ");   print_align_left(msg, 29);  print_buf(L"│");
     move_cursor_buf(x, y + 3); print_buf(L"└──────────────────────────────┘");
 }
